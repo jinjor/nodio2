@@ -34,8 +34,11 @@ module views {
     var rnd = function(n) {
         return Math.floor(Math.random() * (n + 1));
     };
-    export var ParamView = Backbone.View.extend({
-        constructor: function(param) {
+    export class ParamView extends Backbone.View {
+        inX: number;
+        inY: number;
+        constructor(param: models.Param) {
+            super();
             var position = _.extend({}, Backbone.Events);
             var label = $('<label/>').text(param.description ? param.description : param.name);
             var $el = $('<div class="param"/>').css({
@@ -51,45 +54,48 @@ module views {
             $el.raphael = r.circle(8, 8, 6, 9).attr({
                 fill: '#222'
             });
-            
             this.inX = $el.offset().left + 8;
             this.inY = $el.offset().top + 8;
-            
             var position = _.extend({}, Backbone.Events);
             this.$el = $el;
-        },
-        move: function(){
+        }
+        move(){
             this.inX = this.$el.offset().left + 8;
             this.inY = this.$el.offset().top + 8;
             this.trigger('move');
         }
-    });
+    }
     
 
     var tmpNodeFrom = null;
     var tmpNodeTo = null;
     
     var _id = 0;
-    var Param = Backbone.Model.extend({
-        _createParamId: function() {
+    export class Param extends Backbone.Model {
+        private createParamId() {
             return 'param' + _id++;
-        },
-        constructor: function(name, description, valueToDescription) {
-            this.id = this._createParamId();
-            this.name = name;
-            this.description = description;
-            this.valueToDescription = valueToDescription;
         }
-    });
+        constructor(public name, public description, public valueToDescription) {
+            super();
+            this.id = this.createParamId();
+        }
+    }
     
     var _views = {};
-    export var NodeView = Backbone.View.extend({
-        constructor: function(node) {
+    export class NodeView extends Backbone.View {
+        paramViews: any;
+        inX: number;
+        inY: number;
+        outX: number;
+        outY: number;
+        
+        constructor(node: models.Node) {
+            super();
             var that = this;
-            this.listenTo(node, 'destroy', function(){
+            this.listenTo(node, 'destroy', () => {
                 this.remove();
             });
-            this.paramViews = node.params.map(function(p){
+            this.paramViews = node.params.map(function(p: models.Param){
                 var view = new ParamView(p);
                 _views[p.id] = view;
                 return view;
@@ -101,19 +107,19 @@ module views {
                 left: rnd(400)+'px'
             }).draggable({
                 drag:function(e, ui){
-                    that._resetPosition();
+                    that.resetPosition();
                 },
                 stop:function(e, ui){
-                    that._resetPosition();
+                    that.resetPosition();
                 }
             }).append(label);
             this.paramViews.forEach(function(pv){
                $el.append(pv.$el)
             });
             this.$el = $el;
-            this._resetPosition();
-        },
-        _resetPosition: function(){
+            this.resetPosition();
+        }
+        private resetPosition(){
             var offset = this.$el.offset();
             this.inX = offset.left;
             this.inY = offset.top + 10;
@@ -124,10 +130,12 @@ module views {
             });
             this.trigger('move');
         }
-    });
+    }
     
-    export var NodesView = Backbone.View.extend({
-        constructor: function(nodes, connections) {
+    export class NodesView extends Backbone.View {
+        raphael: any;
+        constructor(nodes, connections) {
+            super();
             var that = this;
             this.$el = $('<div/>').css({
                 position: 'absolute',
@@ -140,27 +148,27 @@ module views {
             this.listenTo(nodes, 'add', this.addNodeView);
             this.listenTo(connections, 'add', this.addConnectionView);
             
-        },
-        addNodeView: function(node) {
+        }
+        addNodeView(node) {
             var view = new NodeView(node);
             this.listenTo(view, 'remove', function(){
                 delete _views[view.id];
             });
             _views[node.id] = view;
             this.$el.prepend(view.$el);
-        },
-        addConnectionView: function(connection) {
+        }
+        addConnectionView(connection: models.Connection) {
             var sourceView = _views[connection.source.id];
             var targetView = _views[connection.target.id];
             //var raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.$el.append(new ConnectionView(connection, this.raphael, sourceView, targetView).$el);
         }
-    });
+    }
 
-    export var ConnectionView = Backbone.View.extend({
-        constructor: function(connection, raphael, sourceView, targetView) {
-            this.sourceView = sourceView;
-            this.targetView = targetView;
+    export class ConnectionView extends Backbone.View {
+        path: any;
+        constructor(connection: models.Connection, raphael, public sourceView, public targetView) {
+            super();
             this.listenTo(sourceView, 'move', this.render);
             this.listenTo(targetView, 'move', this.render);
             this.path = raphael.path().attr({
@@ -170,16 +178,16 @@ module views {
                 'stroke-linecap': 'round'
             });
             this.render();
-        },
-        render: function(pos) {
+        }
+        private render() {
             var path = createBezierPath(
                 this.sourceView.outX,
                 this.sourceView.outY,
                 this.targetView.inX,
                 this.targetView.inY);
-            this.path.attr('path', path).toFront();
+            this.path.attr('path', path);
         }
-    });
+    }
     
 }
 

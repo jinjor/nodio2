@@ -29,38 +29,33 @@ module models {
     var rnd = function(n) {
         return Math.floor(Math.random() * (n + 1));
     };
-    
-    var Position = Backbone.Model.extend({
-      change: function(x, y) {
-        var cssColor = prompt("Please enter a CSS color:");
-        this.set({color: cssColor});
-      }
-    });
         
     var tmpNodeFrom = null;
     var tmpNodeTo = null;
     
     var _id = 0;
-    export var Param = Backbone.Model.extend({
-        _createParamId: function() {
+    export class Param extends Backbone.Model {
+        id: string;
+        private static createParamId() {
             return 'param' + _id++;
-        },
-        constructor: function(name, description, valueToDescription) {
-            this.id = this._createParamId();
-            this.name = name;
-            this.description = description;
-            this.valueToDescription = valueToDescription;
         }
-    });
+        constructor(public name, public description, public valueToDescription) {
+            super();
+            this.id = Param.createParamId();
+        }
+    }
     
-    export var Node = Backbone.Model.extend({
-        _createParamId: function() {
+    export class Node extends Backbone.Model {
+        id: string;
+        audioNode: AudioNode;
+        params: Param[];
+        targets: any;
+        private static createParamId() {
             return 'node' + _id++;
-        },
-        constructor: function(context, type, description) {
-            this.id = this._createParamId();
-            this.type = type;
-            this.description = description;
+        }
+        constructor(context, public type, public description?) {
+            super();
+            this.id = Node.createParamId();
             if(type == 'gain'){
                 this.audioNode = context.createGain();
                 this.params = [new Param('gain', 'Gain', null)];
@@ -68,23 +63,23 @@ module models {
                 throw 'unsupported type: ' + type;
             }
             this.targets = {};
-        },
-        setParamValue: function(param, value) {
+        }
+        setParamValue(param, value) {
             if(this.audioNode[param.name].value){
                 this.audioNode[param.name].value = value;
             }else{
                 this.audioNode[param.name] = value;
             }
-        },
-        connect: function(to/* Node | Param */) {
+        }
+        connect(to/* Node | Param */) {
             if(to.audioNode) {
                 this.audioNode.connect(to.audioNode);
             }/*else if(to.param.value){//AudioParam
                 this.audioNode.connect(to.audioParam);
             }*/
             this.targets[to.id] = to;
-        },
-        disconnect: function(to/* Node | Param */) {
+        }
+        disconnect(to/* Node | Param */) {
             if(to.audioNode) {
                 this.audioNode.disconnect(to.audioNode);
             }else if(to.param.value){//AudioParam
@@ -97,44 +92,43 @@ module models {
                 }
             }
         }
-    });
+    }
     
-    export var Connection = Backbone.Model.extend({
-        constructor: function(source, target) {
-            this.listenTo(source, 'destroy', this._destroyBySource);
-            this.listenTo(target, 'destroy', this._destroyByTarget);
-            this.source = source;
-            this.target = target;
+    export class Connection extends Backbone.Model {
+        constructor(public source, public target) {
+            super();
+            this.listenTo(source, 'destroy', this.destroyBySource);
+            this.listenTo(target, 'destroy', this.destroyByTarget);
             source.connect(target);
-        },
-        _destroyBySource: function(){
+        }
+        private destroyBySource(){
             this.stopListening(this.target);
-            this._destroy();
-        },
-        _destroyByTarget: function(){
-            this.stopListening(this.source);
-            this._destroy();
-        },
-        _destroy: function(){
-            this.from.disconnect(this.target);
             this.destroy();
         }
-    });
+        private destroyByTarget(){
+            this.stopListening(this.source);
+            this.destroy();
+        }
+        private destroy(){
+            this.source.disconnect(this.target);
+            this.destroy();
+        }
+    }
     
-    export var Nodes = Backbone.Collection.extend({
-        model: Node,
-        createNode: function(context, type){
+    export class Nodes extends Backbone.Collection {
+        model: Node;
+        createNode(context, type){
             var node = new Node(context, type);
             this.add(node);
             return node;
         }
-    });
+    }
     
-    export var Connections = Backbone.Collection.extend({
-        createConnection: function(from, to) {
+    export class Connections extends Backbone.Collection {
+        createConnection(from, to) {
             this.add(new Connection(from, to));
         }
-    });
+    }
    
 
 }

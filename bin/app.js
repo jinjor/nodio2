@@ -1,3 +1,8 @@
+var __extends = this.__extends || function (d, b) {
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
 var models;
 (function (models) {
     var createBezierPath = function (x1, y1, x4, y4) {
@@ -23,61 +28,59 @@ var models;
     var rnd = function (n) {
         return Math.floor(Math.random() * (n + 1));
     };
-    var Position = Backbone.Model.extend({
-        change: function (x, y) {
-            var cssColor = prompt("Please enter a CSS color:");
-            this.set({
-                color: cssColor
-            });
-        }
-    });
     var tmpNodeFrom = null;
     var tmpNodeTo = null;
     var _id = 0;
-    models.Param = Backbone.Model.extend({
-        _createParamId: function () {
-            return 'param' + _id++;
-        },
-        constructor: function (name, description, valueToDescription) {
-            this.id = this._createParamId();
+    var Param = (function (_super) {
+        __extends(Param, _super);
+        function Param(name, description, valueToDescription) {
+                _super.call(this);
             this.name = name;
             this.description = description;
             this.valueToDescription = valueToDescription;
+            this.id = Param.createParamId();
         }
-    });
-    models.Node = Backbone.Model.extend({
-        _createParamId: function () {
-            return 'node' + _id++;
-        },
-        constructor: function (context, type, description) {
-            this.id = this._createParamId();
+        Param.createParamId = function createParamId() {
+            return 'param' + _id++;
+        };
+        return Param;
+    })(Backbone.Model);
+    models.Param = Param;    
+    var Node = (function (_super) {
+        __extends(Node, _super);
+        function Node(context, type, description) {
+                _super.call(this);
             this.type = type;
             this.description = description;
+            this.id = Node.createParamId();
             if(type == 'gain') {
                 this.audioNode = context.createGain();
                 this.params = [
-                    new models.Param('gain', 'Gain', null)
+                    new Param('gain', 'Gain', null)
                 ];
             } else {
                 throw 'unsupported type: ' + type;
             }
             this.targets = {
             };
-        },
-        setParamValue: function (param, value) {
+        }
+        Node.createParamId = function createParamId() {
+            return 'node' + _id++;
+        };
+        Node.prototype.setParamValue = function (param, value) {
             if(this.audioNode[param.name].value) {
                 this.audioNode[param.name].value = value;
             } else {
                 this.audioNode[param.name] = value;
             }
-        },
-        connect: function (to) {
+        };
+        Node.prototype.connect = function (to) {
             if(to.audioNode) {
                 this.audioNode.connect(to.audioNode);
             }
             this.targets[to.id] = to;
-        },
-        disconnect: function (to) {
+        };
+        Node.prototype.disconnect = function (to) {
             if(to.audioNode) {
                 this.audioNode.disconnect(to.audioNode);
             } else if(to.param.value) {
@@ -89,42 +92,61 @@ var models;
                     this.connect(this.targets[key]);
                 }
             }
-        }
-    });
-    models.Connection = Backbone.Model.extend({
-        constructor: function (source, target) {
-            this.listenTo(source, 'destroy', this._destroyBySource);
-            this.listenTo(target, 'destroy', this._destroyByTarget);
+        };
+        return Node;
+    })(Backbone.Model);
+    models.Node = Node;    
+    var Connection = (function (_super) {
+        __extends(Connection, _super);
+        function Connection(source, target) {
+                _super.call(this);
             this.source = source;
             this.target = target;
+            this.listenTo(source, 'destroy', this.destroyBySource);
+            this.listenTo(target, 'destroy', this.destroyByTarget);
             source.connect(target);
-        },
-        _destroyBySource: function () {
-            this.stopListening(this.target);
-            this._destroy();
-        },
-        _destroyByTarget: function () {
-            this.stopListening(this.source);
-            this._destroy();
-        },
-        _destroy: function () {
-            this.from.disconnect(this.target);
-            this.destroy();
         }
-    });
-    models.Nodes = Backbone.Collection.extend({
-        model: models.Node,
-        createNode: function (context, type) {
-            var node = new models.Node(context, type);
+        Connection.prototype.destroyBySource = function () {
+            this.stopListening(this.target);
+            this.destroy();
+        };
+        Connection.prototype.destroyByTarget = function () {
+            this.stopListening(this.source);
+            this.destroy();
+        };
+        Connection.prototype.destroy = function () {
+            this.source.disconnect(this.target);
+            this.destroy();
+        };
+        return Connection;
+    })(Backbone.Model);
+    models.Connection = Connection;    
+    var Nodes = (function (_super) {
+        __extends(Nodes, _super);
+        function Nodes() {
+            _super.apply(this, arguments);
+
+        }
+        Nodes.prototype.createNode = function (context, type) {
+            var node = new Node(context, type);
             this.add(node);
             return node;
+        };
+        return Nodes;
+    })(Backbone.Collection);
+    models.Nodes = Nodes;    
+    var Connections = (function (_super) {
+        __extends(Connections, _super);
+        function Connections() {
+            _super.apply(this, arguments);
+
         }
-    });
-    models.Connections = Backbone.Collection.extend({
-        createConnection: function (from, to) {
-            this.add(new models.Connection(from, to));
-        }
-    });
+        Connections.prototype.createConnection = function (from, to) {
+            this.add(new Connection(from, to));
+        };
+        return Connections;
+    })(Backbone.Collection);
+    models.Connections = Connections;    
 })(models || (models = {}));
 var views;
 (function (views) {
@@ -151,8 +173,10 @@ var views;
     var rnd = function (n) {
         return Math.floor(Math.random() * (n + 1));
     };
-    views.ParamView = Backbone.View.extend({
-        constructor: function (param) {
+    var ParamView = (function (_super) {
+        __extends(ParamView, _super);
+        function ParamView(param) {
+                _super.call(this);
             var position = _.extend({
             }, Backbone.Events);
             var label = $('<label/>').text(param.description ? param.description : param.name);
@@ -171,37 +195,46 @@ var views;
             var position = _.extend({
             }, Backbone.Events);
             this.$el = $el;
-        },
-        move: function () {
+        }
+        ParamView.prototype.move = function () {
             this.inX = this.$el.offset().left + 8;
             this.inY = this.$el.offset().top + 8;
             this.trigger('move');
-        }
-    });
+        };
+        return ParamView;
+    })(Backbone.View);
+    views.ParamView = ParamView;    
     var tmpNodeFrom = null;
     var tmpNodeTo = null;
     var _id = 0;
-    var Param = Backbone.Model.extend({
-        _createParamId: function () {
-            return 'param' + _id++;
-        },
-        constructor: function (name, description, valueToDescription) {
-            this.id = this._createParamId();
+    var Param = (function (_super) {
+        __extends(Param, _super);
+        function Param(name, description, valueToDescription) {
+                _super.call(this);
             this.name = name;
             this.description = description;
             this.valueToDescription = valueToDescription;
+            this.id = this.createParamId();
         }
-    });
+        Param.prototype.createParamId = function () {
+            return 'param' + _id++;
+        };
+        return Param;
+    })(Backbone.Model);
+    views.Param = Param;    
     var _views = {
     };
-    views.NodeView = Backbone.View.extend({
-        constructor: function (node) {
+    var NodeView = (function (_super) {
+        __extends(NodeView, _super);
+        function NodeView(node) {
+            var _this = this;
+                _super.call(this);
             var that = this;
             this.listenTo(node, 'destroy', function () {
-                this.remove();
+                _this.remove();
             });
             this.paramViews = node.params.map(function (p) {
-                var view = new views.ParamView(p);
+                var view = new ParamView(p);
                 _views[p.id] = view;
                 return view;
             });
@@ -212,19 +245,19 @@ var views;
                 left: rnd(400) + 'px'
             }).draggable({
                 drag: function (e, ui) {
-                    that._resetPosition();
+                    that.resetPosition();
                 },
                 stop: function (e, ui) {
-                    that._resetPosition();
+                    that.resetPosition();
                 }
             }).append(label);
             this.paramViews.forEach(function (pv) {
                 $el.append(pv.$el);
             });
             this.$el = $el;
-            this._resetPosition();
-        },
-        _resetPosition: function () {
+            this.resetPosition();
+        }
+        NodeView.prototype.resetPosition = function () {
             var offset = this.$el.offset();
             this.inX = offset.left;
             this.inY = offset.top + 10;
@@ -234,10 +267,14 @@ var views;
                 pv.move();
             });
             this.trigger('move');
-        }
-    });
-    views.NodesView = Backbone.View.extend({
-        constructor: function (nodes, connections) {
+        };
+        return NodeView;
+    })(Backbone.View);
+    views.NodeView = NodeView;    
+    var NodesView = (function (_super) {
+        __extends(NodesView, _super);
+        function NodesView(nodes, connections) {
+                _super.call(this);
             var that = this;
             this.$el = $('<div/>').css({
                 position: 'absolute',
@@ -249,23 +286,27 @@ var views;
             this.raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.listenTo(nodes, 'add', this.addNodeView);
             this.listenTo(connections, 'add', this.addConnectionView);
-        },
-        addNodeView: function (node) {
-            var view = new views.NodeView(node);
+        }
+        NodesView.prototype.addNodeView = function (node) {
+            var view = new NodeView(node);
             this.listenTo(view, 'remove', function () {
                 delete _views[view.id];
             });
             _views[node.id] = view;
             this.$el.prepend(view.$el);
-        },
-        addConnectionView: function (connection) {
+        };
+        NodesView.prototype.addConnectionView = function (connection) {
             var sourceView = _views[connection.source.id];
             var targetView = _views[connection.target.id];
-            this.$el.append(new views.ConnectionView(connection, this.raphael, sourceView, targetView).$el);
-        }
-    });
-    views.ConnectionView = Backbone.View.extend({
-        constructor: function (connection, raphael, sourceView, targetView) {
+            this.$el.append(new ConnectionView(connection, this.raphael, sourceView, targetView).$el);
+        };
+        return NodesView;
+    })(Backbone.View);
+    views.NodesView = NodesView;    
+    var ConnectionView = (function (_super) {
+        __extends(ConnectionView, _super);
+        function ConnectionView(connection, raphael, sourceView, targetView) {
+                _super.call(this);
             this.sourceView = sourceView;
             this.targetView = targetView;
             this.listenTo(sourceView, 'move', this.render);
@@ -277,12 +318,14 @@ var views;
                 'stroke-linecap': 'round'
             });
             this.render();
-        },
-        render: function (pos) {
-            var path = createBezierPath(this.sourceView.outX, this.sourceView.outY, this.targetView.inX, this.targetView.inY);
-            this.path.attr('path', path).toFront();
         }
-    });
+        ConnectionView.prototype.render = function () {
+            var path = createBezierPath(this.sourceView.outX, this.sourceView.outY, this.targetView.inX, this.targetView.inY);
+            this.path.attr('path', path);
+        };
+        return ConnectionView;
+    })(Backbone.View);
+    views.ConnectionView = ConnectionView;    
 })(views || (views = {}));
 var nodio;
 (function (nodio) {
