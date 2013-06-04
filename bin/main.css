@@ -1,0 +1,26 @@
+body {
+    margin: 0
+}
+svg {
+    position: static;
+    pointer-events: none;
+}
+svg path{
+    position: absolute;
+    z-index:-1;
+}
+.node {
+    border: solid 1px #666;
+    background-color:#479;
+}
+.node label{
+    font-size:14px;
+    vertical-align:center;
+}
+.param {
+    background-color:#aaa;
+}
+.param label{
+    font-size:14px;
+    vertical-align:center;
+}
