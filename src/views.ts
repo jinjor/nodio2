@@ -91,7 +91,6 @@ module views {
         
         constructor(node: models.Node) {
             super();
-            var that = this;
             this.listenTo(node, 'destroy', () => {
                 this.remove();
             });
@@ -100,17 +99,17 @@ module views {
                 _views[p.id] = view;
                 return view;
             });
-            var label = $('<label/>').text(node.description ? node.description : node.type);
+            var label = $('<label/>').text(node.description);
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400)+'px',
                 left: rnd(400)+'px'
             }).draggable({
-                drag:function(e, ui){
-                    that.resetPosition();
+                drag:(e, ui) => {
+                    this.resetPosition();
                 },
-                stop:function(e, ui){
-                    that.resetPosition();
+                stop: (e, ui) =>{
+                    this.resetPosition();
                 }
             }).append(label);
             this.paramViews.forEach(function(pv){
@@ -134,7 +133,7 @@ module views {
     
     export class NodesView extends Backbone.View {
         raphael: any;
-        constructor(nodes, connections) {
+        constructor(nodes, connections: models.Connections) {
             super();
             var that = this;
             this.$el = $('<div/>').css({

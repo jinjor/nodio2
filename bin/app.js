@@ -37,8 +37,9 @@ var models;
                 _super.call(this);
             this.name = name;
             this.description = description;
-            this.valueToDescription = valueToDescription;
             this.id = Param.createParamId();
+            this.valueToDescription = valueToDescription || function () {
+            };
         }
         Param.createParamId = function createParamId() {
             return 'param' + _id++;
@@ -48,19 +49,12 @@ var models;
     models.Param = Param;    
     var Node = (function (_super) {
         __extends(Node, _super);
-        function Node(context, type, description) {
+        function Node(context, audioNode, params, description) {
                 _super.call(this);
-            this.type = type;
+            this.audioNode = audioNode;
+            this.params = params;
             this.description = description;
             this.id = Node.createParamId();
-            if(type == 'gain') {
-                this.audioNode = context.createGain();
-                this.params = [
-                    new Param('gain', 'Gain', null)
-                ];
-            } else {
-                throw 'unsupported type: ' + type;
-            }
             this.targets = {
             };
         }
@@ -127,10 +121,74 @@ var models;
             _super.apply(this, arguments);
 
         }
-        Nodes.prototype.createNode = function (context, type) {
-            var node = new Node(context, type);
-            this.add(node);
-            return node;
+        Nodes.prototype.gainNode = function (context, val) {
+            var audioNode = context.createGain();
+            var _node = new Node('gain', audioNode, [
+                new Param('gain', 'Gain')
+            ], 'Gain');
+            this.add(_node);
+            return _node;
+        };
+        Nodes.prototype.oscillatorNode = function (context, type, freq) {
+            var audioNode = context.createOscillator();
+            var _node = new Node('oscillator', audioNode, [
+                new Param('type', 'Gain'), 
+                new Param('freq', 'Freq')
+            ], 'Oscillator');
+            this.add(_node);
+            audioNode.start(0);
+            return _node;
+        };
+        Nodes.prototype.biquadFilterNode = function (context, type, freq, q, gain) {
+            var audioNode = context.createBiquadFilter();
+            var useGain = false;
+            if(type == 'lowpass') {
+            } else if(type == 'highpass') {
+            } else if(type == 'bandpass') {
+            } else if(type == 'lowshelf') {
+                useGain = true;
+            } else if(type == 'highshelf') {
+                useGain = true;
+            } else if(type == 'peaking') {
+                useGain = true;
+            } else if(type == 'notch') {
+            } else if(type == 'allpass') {
+            } else {
+                throw '!';
+            }
+            var params = [
+                new Param('frequency', 'Freq'), 
+                new Param('Q', 'Q')
+            ];
+            if(useGain) {
+                params.push(new Param('gain', 'Gain'));
+            }
+            var _node = new Node('filter', audioNode, params, 'Filter[' + type + ']');
+            this.add(_node);
+            return _node;
+        };
+        Nodes.prototype.analyserNode = function (context) {
+            var audioNode = context.createAnalyser();
+            audioNode.fftSize = 1024;
+            var _node = new Node('analyser', audioNode, [
+                new Param('mode', 'Mode')
+            ], 'Analyser');
+            this.add(_node);
+            return _node;
+        };
+        Nodes.prototype.delayNode = function (context, val) {
+            var audioNode = context.createDelay();
+            var _node = new Node('delay', audioNode, [
+                new Param('delayTime', 'Time')
+            ], 'Delay');
+            this.add(_node);
+            return _node;
+        };
+        Nodes.prototype.destinationNode = function (context) {
+            var audioNode = context.destination;
+            var _node = new Node('destination', audioNode, [], 'Destination');
+            this.add(_node);
+            return _node;
         };
         return Nodes;
     })(Backbone.Collection);
@@ -229,7 +287,6 @@ var views;
         function NodeView(node) {
             var _this = this;
                 _super.call(this);
-            var that = this;
             this.listenTo(node, 'destroy', function () {
                 _this.remove();
             });
@@ -238,17 +295,17 @@ var views;
                 _views[p.id] = view;
                 return view;
             });
-            var label = $('<label/>').text(node.description ? node.description : node.type);
+            var label = $('<label/>').text(node.description);
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400) + 'px',
                 left: rnd(400) + 'px'
             }).draggable({
                 drag: function (e, ui) {
-                    that.resetPosition();
+                    _this.resetPosition();
                 },
                 stop: function (e, ui) {
-                    that.resetPosition();
+                    _this.resetPosition();
                 }
             }).append(label);
             this.paramViews.forEach(function (pv) {
@@ -329,30 +386,17 @@ var views;
 })(views || (views = {}));
 var nodio;
 (function (nodio) {
-    window.onload = function () {
-        var connections2 = [];
-        var context = {
-            createGain: function () {
-                return {
-                    gain: {
-                        value: null
-                    },
-                    connect: function () {
-                    },
-                    disconnect: function () {
-                    }
-                };
-            }
-        };
+    var context = new webkitAudioContext();
+    $(function () {
         var connections = new models.Connections();
         var nodes = new models.Nodes();
         console.log(views);
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
-        var node1 = nodes.createNode(context, 'gain');
-        var node2 = nodes.createNode(context, 'gain');
+        var node1 = nodes.gainNode(context, 0.2);
+        var node2 = nodes.gainNode(context, 0.3);
         connections.createConnection(node1, node2);
         connections.createConnection(node1, node2.params[0]);
-    };
+    });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map
