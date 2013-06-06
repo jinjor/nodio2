@@ -33,13 +33,11 @@ var models;
     var _id = 0;
     var Param = (function (_super) {
         __extends(Param, _super);
-        function Param(name, description, valueToDescription) {
+        function Param(description, setValue) {
                 _super.call(this);
-            this.name = name;
             this.description = description;
+            this.setValue = setValue;
             this.id = Param.createParamId();
-            this.valueToDescription = valueToDescription || function () {
-            };
         }
         Param.createParamId = function createParamId() {
             return 'param' + _id++;
@@ -47,39 +45,37 @@ var models;
         return Param;
     })(Backbone.Model);
     models.Param = Param;    
+    var TargetParam = (function (_super) {
+        __extends(TargetParam, _super);
+        function TargetParam(description, value) {
+                _super.call(this, description, function (_value) {
+        value.value = _value;
+    });
+            this.value = value;
+        }
+        return TargetParam;
+    })(Param);
+    models.TargetParam = TargetParam;    
     var Node = (function (_super) {
         __extends(Node, _super);
-        function Node(context, audioNode, params, description) {
+        function Node(audioNode, description) {
                 _super.call(this);
             this.audioNode = audioNode;
-            this.params = params;
             this.description = description;
             this.id = Node.createParamId();
             this.targets = {
             };
+            this.value = audioNode;
         }
         Node.createParamId = function createParamId() {
             return 'node' + _id++;
         };
-        Node.prototype.setParamValue = function (param, value) {
-            if(this.audioNode[param.name].value) {
-                this.audioNode[param.name].value = value;
-            } else {
-                this.audioNode[param.name] = value;
-            }
-        };
         Node.prototype.connect = function (to) {
-            if(to.audioNode) {
-                this.audioNode.connect(to.audioNode);
-            }
+            this.audioNode.connect(to.value);
             this.targets[to.id] = to;
         };
         Node.prototype.disconnect = function (to) {
-            if(to.audioNode) {
-                this.audioNode.disconnect(to.audioNode);
-            } else if(to.param.value) {
-                this.audioNode.disconnect(to.param);
-            }
+            this.audioNode.disconnect(to.value);
             delete this.targets[to.id];
             for(var key in this.targets) {
                 if(this.targets.hasOwnProperty(key)) {
@@ -90,6 +86,85 @@ var models;
         return Node;
     })(Backbone.Model);
     models.Node = Node;    
+    var GainNode = (function (_super) {
+        __extends(GainNode, _super);
+        function GainNode(node) {
+                _super.call(this, node, 'Gain');
+            this.gain = new TargetParam('Gain', node.gain);
+            this.params = [
+                this.gain
+            ];
+        }
+        return GainNode;
+    })(Node);
+    models.GainNode = GainNode;    
+    var DelayNode = (function (_super) {
+        __extends(DelayNode, _super);
+        function DelayNode(node) {
+                _super.call(this, node, 'Delay');
+            this.delayTime = new TargetParam('DelayTime', node.delayTime);
+            this.params = [
+                this.delayTime
+            ];
+        }
+        return DelayNode;
+    })(Node);
+    models.DelayNode = DelayNode;    
+    var OscillatorNode = (function (_super) {
+        __extends(OscillatorNode, _super);
+        function OscillatorNode(node) {
+                _super.call(this, node, 'Oscillator');
+            this.type = new Param('Type', function (value) {
+                node.type = value;
+            });
+            this.freq = new TargetParam('Freq', node.frequency);
+            this.params = [
+                this.type, 
+                this.freq
+            ];
+        }
+        return OscillatorNode;
+    })(Node);
+    models.OscillatorNode = OscillatorNode;    
+    var AnalyserNode = (function (_super) {
+        __extends(AnalyserNode, _super);
+        function AnalyserNode(node) {
+                _super.call(this, node, 'Analyser');
+            this.mode = new Param('Mode', function (value) {
+                node.mode = value;
+            });
+            this.attack = new Param('Attack', function (value) {
+                console.log('attack:' + value);
+            });
+            this.decay = new Param('Decay', function (value) {
+                console.log('decay:' + value);
+            });
+            this.sustain = new Param('Sustain', function (value) {
+                console.log('sustain:' + value);
+            });
+            this.release = new Param('Release', function (value) {
+                console.log('release:' + value);
+            });
+            this.params = [
+                this.mode, 
+                this.attack, 
+                this.decay, 
+                this.sustain, 
+                this.release
+            ];
+        }
+        return AnalyserNode;
+    })(Node);
+    models.AnalyserNode = AnalyserNode;    
+    var DestinationNode = (function (_super) {
+        __extends(DestinationNode, _super);
+        function DestinationNode(node) {
+                _super.call(this, node, 'Destination');
+            this.params = [];
+        }
+        return DestinationNode;
+    })(Node);
+    models.DestinationNode = DestinationNode;    
     var Connection = (function (_super) {
         __extends(Connection, _super);
         function Connection(source, target) {
@@ -108,7 +183,9 @@ var models;
             this.stopListening(this.source);
             this.destroy();
         };
-        Connection.prototype.destroy = function () {
+        Connection.prototype.disconnect = function () {
+            this.stopListening(this.target);
+            this.stopListening(this.source);
             this.source.disconnect(this.target);
             this.destroy();
         };
@@ -123,70 +200,33 @@ var models;
         }
         Nodes.prototype.gainNode = function (context, val) {
             var audioNode = context.createGain();
-            var _node = new Node('gain', audioNode, [
-                new Param('gain', 'Gain')
-            ], 'Gain');
-            this.add(_node);
-            return _node;
+            var node = new GainNode(audioNode);
+            this.add(node);
+            return node;
         };
         Nodes.prototype.oscillatorNode = function (context, type, freq) {
             var audioNode = context.createOscillator();
-            var _node = new Node('oscillator', audioNode, [
-                new Param('type', 'Gain'), 
-                new Param('freq', 'Freq')
-            ], 'Oscillator');
+            var _node = new OscillatorNode(audioNode);
             this.add(_node);
             audioNode.start(0);
-            return _node;
-        };
-        Nodes.prototype.biquadFilterNode = function (context, type, freq, q, gain) {
-            var audioNode = context.createBiquadFilter();
-            var useGain = false;
-            if(type == 'lowpass') {
-            } else if(type == 'highpass') {
-            } else if(type == 'bandpass') {
-            } else if(type == 'lowshelf') {
-                useGain = true;
-            } else if(type == 'highshelf') {
-                useGain = true;
-            } else if(type == 'peaking') {
-                useGain = true;
-            } else if(type == 'notch') {
-            } else if(type == 'allpass') {
-            } else {
-                throw '!';
-            }
-            var params = [
-                new Param('frequency', 'Freq'), 
-                new Param('Q', 'Q')
-            ];
-            if(useGain) {
-                params.push(new Param('gain', 'Gain'));
-            }
-            var _node = new Node('filter', audioNode, params, 'Filter[' + type + ']');
-            this.add(_node);
             return _node;
         };
         Nodes.prototype.analyserNode = function (context) {
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
-            var _node = new Node('analyser', audioNode, [
-                new Param('mode', 'Mode')
-            ], 'Analyser');
+            var _node = new AnalyserNode(audioNode);
             this.add(_node);
             return _node;
         };
         Nodes.prototype.delayNode = function (context, val) {
             var audioNode = context.createDelay();
-            var _node = new Node('delay', audioNode, [
-                new Param('delayTime', 'Time')
-            ], 'Delay');
-            this.add(_node);
-            return _node;
+            var node = new DelayNode(context);
+            this.add(node);
+            return node;
         };
         Nodes.prototype.destinationNode = function (context) {
             var audioNode = context.destination;
-            var _node = new Node('destination', audioNode, [], 'Destination');
+            var _node = new DestinationNode(audioNode);
             this.add(_node);
             return _node;
         };
@@ -200,7 +240,9 @@ var models;
 
         }
         Connections.prototype.createConnection = function (from, to) {
-            this.add(new Connection(from, to));
+            var connection = new Connection(from, to);
+            this.add(connection);
+            return connection;
         };
         return Connections;
     })(Backbone.Collection);
@@ -237,7 +279,7 @@ var views;
                 _super.call(this);
             var position = _.extend({
             }, Backbone.Events);
-            var label = $('<label/>').text(param.description ? param.description : param.name);
+            var label = $('<label/>').text(param.description);
             var $el = $('<div class="param"/>').css({
                 top: rnd(400) + 'px',
                 left: rnd(400) + 'px',
@@ -313,6 +355,9 @@ var views;
             });
             this.$el = $el;
             this.resetPosition();
+            setTimeout(function () {
+                _this.resetPosition();
+            }, 0);
         }
         NodeView.prototype.resetPosition = function () {
             var offset = this.$el.offset();
@@ -363,9 +408,13 @@ var views;
     var ConnectionView = (function (_super) {
         __extends(ConnectionView, _super);
         function ConnectionView(connection, raphael, sourceView, targetView) {
+            var _this = this;
                 _super.call(this);
             this.sourceView = sourceView;
             this.targetView = targetView;
+            this.listenTo(connection, 'destroy', function () {
+                _this.path.remove();
+            });
             this.listenTo(sourceView, 'move', this.render);
             this.listenTo(targetView, 'move', this.render);
             this.path = raphael.path().attr({
@@ -393,10 +442,12 @@ var nodio;
         console.log(views);
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
-        var node1 = nodes.gainNode(context, 0.2);
-        var node2 = nodes.gainNode(context, 0.3);
-        connections.createConnection(node1, node2);
-        connections.createConnection(node1, node2.params[0]);
+        var node1 = nodes.oscillatorNode(context, null, null);
+        var node2 = nodes.gainNode(context, null);
+        var node3 = nodes.destinationNode(context);
+        var conn1 = connections.createConnection(node1, node2);
+        var conn2 = connections.createConnection(node2, node3);
+        var conn3 = connections.createConnection(node1, node2.gain);
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map

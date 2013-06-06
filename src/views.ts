@@ -40,7 +40,7 @@ module views {
         constructor(param: models.Param) {
             super();
             var position = _.extend({}, Backbone.Events);
-            var label = $('<label/>').text(param.description ? param.description : param.name);
+            var label = $('<label/>').text(param.description);
             var $el = $('<div class="param"/>').css({
                 top: rnd(400) + 'px',
                 left: rnd(400) + 'px',
@@ -117,6 +117,10 @@ module views {
             });
             this.$el = $el;
             this.resetPosition();
+            setTimeout(()=>{
+                this.resetPosition();
+            },0)
+            
         }
         private resetPosition(){
             var offset = this.$el.offset();
@@ -168,6 +172,9 @@ module views {
         path: any;
         constructor(connection: models.Connection, raphael, public sourceView, public targetView) {
             super();
+            this.listenTo(connection, 'destroy', () => {
+                this.path.remove();
+            });
             this.listenTo(sourceView, 'move', this.render);
             this.listenTo(targetView, 'move', this.render);
             this.path = raphael.path().attr({
@@ -177,6 +184,7 @@ module views {
                 'stroke-linecap': 'round'
             });
             this.render();
+            
         }
         private render() {
             var path = createBezierPath(

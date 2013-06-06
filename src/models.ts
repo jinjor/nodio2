@@ -4,6 +4,11 @@
 
 module models {
     
+    export interface ConnectionTarget {
+        id: string;
+        value: any;
+    }
+    
     var createBezierPath = function(x1, y1, x4, y4){
         var dx = x4 - x1;
         var dy = y4 - y1;
@@ -36,49 +41,43 @@ module models {
     var _id = 0;
     export class Param extends Backbone.Model {
         id: string;
-        valueToDescription: any;
         private static createParamId() {
             return 'param' + _id++;
         }
-        constructor(public name, public description, valueToDescription?) {
+        constructor(public description, public setValue: any) {
             super();
             this.id = Param.createParamId();
-            this.valueToDescription = valueToDescription || function(){};
+        }
+    }
+    export class TargetParam extends Param implements ConnectionTarget {
+        constructor(description, public value: AudioParam) {
+            super(description, (_value) => {
+                value.value = _value;
+            });
         }
     }
     
-    export class Node extends Backbone.Model {
+    export class Node extends Backbone.Model implements ConnectionTarget {
         id: string;
-        targets: any;
+        private targets: any;
+        value: any;
+        
         private static createParamId() {
             return 'node' + _id++;
         }
-        constructor(context, public audioNode, public params, public description?) {
+        params: Param[];
+        constructor(private audioNode, public description) {
             super();
             this.id = Node.createParamId();
             this.targets = {};
+            this.value = audioNode;
         }
-        setParamValue(param, value) {
-            if(this.audioNode[param.name].value){
-                this.audioNode[param.name].value = value;
-            }else{
-                this.audioNode[param.name] = value;
-            }
-        }
-        connect(to/* Node | Param */) {
-            if(to.audioNode) {
-                this.audioNode.connect(to.audioNode);
-            }/*else if(to.param.value){//AudioParam
-                this.audioNode.connect(to.audioParam);
-            }*/
+        connect(to: ConnectionTarget) {
+            this.audioNode.connect(to.value);
             this.targets[to.id] = to;
         }
-        disconnect(to/* Node | Param */) {
-            if(to.audioNode) {
-                this.audioNode.disconnect(to.audioNode);
-            }else if(to.param.value){//AudioParam
-                this.audioNode.disconnect(to.param);
-            }
+        disconnect(to: ConnectionTarget) {
+            this.audioNode.disconnect(to.value);
             delete this.targets[to.id];
             for(var key in this.targets){
                 if(this.targets.hasOwnProperty(key)){
@@ -88,8 +87,69 @@ module models {
         }
     }
     
+    export class GainNode extends Node  {
+        gain: TargetParam;
+        constructor(node: any) {
+            super(node, 'Gain');
+            this.gain = new TargetParam('Gain', node.gain);
+            this.params = [this.gain];
+        }
+    }
+    export class DelayNode extends Node {
+        delayTime: TargetParam;
+        constructor(node: any) {
+            super(node, 'Delay');
+            this.delayTime = new TargetParam('DelayTime', node.delayTime);
+            this.params = [this.delayTime];
+        }
+    }
+    export class OscillatorNode extends Node {
+        type: Param;
+        freq: TargetParam;
+        constructor(node: any) {
+            super(node, 'Oscillator');
+            this.type = new Param('Type', (value) => {
+                node.type = value;
+            });
+            this.freq = new TargetParam('Freq', node.frequency);
+            this.params = [this.type, this.freq];
+        }
+    }
+    export class AnalyserNode extends Node {
+        mode: Param;
+        attack: Param;
+        decay: Param;
+        sustain: Param;
+        release: Param;
+        constructor(node: any) {
+            super(node, 'Analyser');
+            this.mode = new Param('Mode', (value) => {
+                node.mode = value;
+            });
+            this.attack = new Param('Attack', (value) => {
+                console.log('attack:'+value);
+            });
+            this.decay = new Param('Decay', (value) => {
+                console.log('decay:'+value);
+            });
+            this.sustain = new Param('Sustain', (value) => {
+                console.log('sustain:'+value);
+            });
+            this.release = new Param('Release', (value) => {
+                console.log('release:'+value);
+            });
+            this.params = [this.mode, this.attack, this.decay, this.sustain, this.release];
+        }
+    }
+    export class DestinationNode extends Node {
+        constructor(node: any) {
+            super(node, 'Destination');
+            this.params = [];
+        }
+    }
+
     export class Connection extends Backbone.Model {
-        constructor(public source, public target) {
+        constructor(public source: Node, public target: Node) {
             super();
             this.listenTo(source, 'destroy', this.destroyBySource);
             this.listenTo(target, 'destroy', this.destroyByTarget);
@@ -103,7 +163,9 @@ module models {
             this.stopListening(this.source);
             this.destroy();
         }
-        private destroy(){
+        public disconnect(){
+            this.stopListening(this.target);
+            this.stopListening(this.source);
             this.source.disconnect(this.target);
             this.destroy();
         }
@@ -113,21 +175,18 @@ module models {
         model: Node;
         gainNode(context: AudioContext, val){
             var audioNode = context.createGain();
-            var _node = new Node('gain', audioNode,
-                [new Param('gain', 'Gain')],
-                'Gain');
-            this.add(_node);
-            return _node
+            var node = new GainNode(audioNode);
+            this.add(node);
+            return node
         }
         oscillatorNode(context: AudioContext, type, freq){
             var audioNode = context.createOscillator();
-            var _node = new Node('oscillator', audioNode,
-                [new Param('type', 'Gain'), new Param('freq', 'Freq')],
-                'Oscillator');
+            var _node = new OscillatorNode(audioNode);
             this.add(_node);
             audioNode.start(0);
             return _node
         }
+        /*
         biquadFilterNode(context: AudioContext, type:String, freq, q, gain){
             var audioNode = context.createBiquadFilter();
             
@@ -155,19 +214,19 @@ module models {
                 'Filter[' + type + ']');
             this.add(_node);
             return _node
-        }
+        }*/
         analyserNode(context: AudioContext){
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
-            var _node = new Node('analyser', audioNode, [new Param('mode', 'Mode')], 'Analyser');
+            var _node = new AnalyserNode(audioNode);
             this.add(_node);
             return _node
         }
         delayNode(context: AudioContext, val){
             var audioNode = context.createDelay();
-            var _node = new Node('delay', audioNode, [new Param('delayTime', 'Time')], 'Delay');
-            this.add(_node);
-            return _node
+            var node = new DelayNode(context);
+            this.add(node);
+            return node
         }/*
         scriptProcessor(context, keyState){
             var bufsize = 1024;
@@ -203,7 +262,7 @@ module models {
         }*/
         destinationNode(context: AudioContext){
             var audioNode = context.destination
-            var _node = new Node('destination', audioNode, [], 'Destination');
+            var _node = new DestinationNode(audioNode);
             this.add(_node);
             return _node
         }
@@ -211,7 +270,9 @@ module models {
     
     export class Connections extends Backbone.Collection {
         createConnection(from, to) {
-            this.add(new Connection(from, to));
+            var connection = new Connection(from, to);
+            this.add(connection);
+            return connection;
         }
     }
    

@@ -20,13 +20,15 @@ module nodio {
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
         
+        var node1 = nodes.oscillatorNode(context, null, null);
+        var node2 = nodes.gainNode(context, null);
+        var node3 = nodes.destinationNode(context);
         
+        var conn1 = connections.createConnection(node1, node2);
+        var conn2 = connections.createConnection(node2, node3);
+        var conn3 = connections.createConnection(node1, node2.gain);
         
-        var node1 = nodes.gainNode(context, 0.2);
-        var node2 = nodes.gainNode(context, 0.3);
-        connections.createConnection(node1, node2);
-        connections.createConnection(node1, node2.params[0]);
-        
+        //conn3.disconnect();
     });
 
 }
