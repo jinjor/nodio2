@@ -117,15 +117,21 @@ module models {
     }
     export class AnalyserNode extends Node {
         mode: Param;
+        constructor(node: any) {
+            super(node, 'Analyser');
+            this.mode = new Param('Mode', (value) => {
+                node.mode = value;
+            });
+            this.params = [this.mode];
+        }
+    }
+    export class ButtonNode extends Node {
         attack: Param;
         decay: Param;
         sustain: Param;
         release: Param;
         constructor(node: any) {
             super(node, 'Analyser');
-            this.mode = new Param('Mode', (value) => {
-                node.mode = value;
-            });
             this.attack = new Param('Attack', (value) => {
                 console.log('attack:'+value);
             });
@@ -138,7 +144,7 @@ module models {
             this.release = new Param('Release', (value) => {
                 console.log('release:'+value);
             });
-            this.params = [this.mode, this.attack, this.decay, this.sustain, this.release];
+            this.params = [this.attack, this.decay, this.sustain, this.release];
         }
     }
     export class DestinationNode extends Node {
@@ -149,7 +155,7 @@ module models {
     }
 
     export class Connection extends Backbone.Model {
-        constructor(public source: Node, public target: Node) {
+        constructor(public source: Node, public target: ConnectionTarget) {
             super();
             this.listenTo(source, 'destroy', this.destroyBySource);
             this.listenTo(target, 'destroy', this.destroyByTarget);
@@ -176,15 +182,18 @@ module models {
         gainNode(context: AudioContext, val){
             var audioNode = context.createGain();
             var node = new GainNode(audioNode);
+            node.gain.setValue(val);
             this.add(node);
             return node
         }
         oscillatorNode(context: AudioContext, type, freq){
             var audioNode = context.createOscillator();
-            var _node = new OscillatorNode(audioNode);
-            this.add(_node);
+            var node = new OscillatorNode(audioNode);
+            node.type.setValue(type);
+            node.freq.setValue(freq);
+            this.add(node);
             audioNode.start(0);
-            return _node
+            return node
         }
         /*
         biquadFilterNode(context: AudioContext, type:String, freq, q, gain){
@@ -218,13 +227,14 @@ module models {
         analyserNode(context: AudioContext){
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
-            var _node = new AnalyserNode(audioNode);
-            this.add(_node);
-            return _node
+            var node = new AnalyserNode(audioNode);
+            this.add(node);
+            return node
         }
         delayNode(context: AudioContext, val){
             var audioNode = context.createDelay();
-            var node = new DelayNode(context);
+            var node = new DelayNode(audioNode);
+            node.delayTime.setValue(val);
             this.add(node);
             return node
         }/*

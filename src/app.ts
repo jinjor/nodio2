@@ -20,15 +20,31 @@ module nodio {
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
         
-        var node1 = nodes.oscillatorNode(context, null, null);
-        var node2 = nodes.gainNode(context, null);
-        var node3 = nodes.destinationNode(context);
+        var osc1 = nodes.oscillatorNode(context, 0, 440);
+        var gain1 = nodes.gainNode(context, 0.3);
+        var gain2 = nodes.gainNode(context, 0.3);
+        var delay1 = nodes.delayNode(context, 100);
+        var dest = nodes.destinationNode(context);
+        /*
+        nodeCollection.connect(osc1, button1, true);
+        nodeCollection.connect(button1, gain1, true);
+        nodeCollection.connect(gain1, gain2, true);
+        nodeCollection.connect(gain2, delay1, true);
+        nodeCollection.connect(delay1, gain2, true);
+        nodeCollection.connect(gain2, dest, true);
+        nodeCollection.connect(gain2, analyzer1, true);
+        nodeCollection.connect(gain1, dest, true);//OK
+        */
         
-        var conn1 = connections.createConnection(node1, node2);
-        var conn2 = connections.createConnection(node2, node3);
-        var conn3 = connections.createConnection(node1, node2.gain);
+        var conn1 = connections.createConnection(osc1, gain1);
         
-        conn1.disconnect();
+        var conn2 = connections.createConnection(gain1, gain2);
+        var conn3 = connections.createConnection(delay1, gain2);
+        var conn4 = connections.createConnection(gain2, delay1);
+        var conn5 = connections.createConnection(osc1, gain1.gain);
+        var conn6 = connections.createConnection(gain1, dest);
+        
+        //conn1.disconnect();
     });
 
 }

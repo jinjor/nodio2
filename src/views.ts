@@ -161,22 +161,23 @@ module views {
             this.$el.prepend(view.$el);
         }
         addConnectionView(connection: models.Connection) {
-            var sourceView = _views[connection.source.id];
-            var targetView = _views[connection.target.id];
-            //var raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
-            this.$el.append(new ConnectionView(connection, this.raphael, sourceView, targetView).$el);
+            this.$el.append(new ConnectionView(connection, this.raphael).$el);
         }
     }
 
     export class ConnectionView extends Backbone.View {
         path: any;
-        constructor(connection: models.Connection, raphael, public sourceView, public targetView) {
+        sourceView: NodeView;
+        targetView: NodeView;
+        constructor(connection: models.Connection, raphael) {
             super();
+            this.sourceView = _views[connection.source.id];
+            this.targetView = _views[connection.target.id];
             this.listenTo(connection, 'destroy', () => {
                 this.path.remove();
             });
-            this.listenTo(sourceView, 'move', this.render);
-            this.listenTo(targetView, 'move', this.render);
+            this.listenTo(this.sourceView, 'move', this.render);
+            this.listenTo(this.targetView, 'move', this.render);
             this.path = raphael.path().attr({
                 stroke: '#666',
                 fill: 'none',

@@ -201,26 +201,30 @@ var models;
         Nodes.prototype.gainNode = function (context, val) {
             var audioNode = context.createGain();
             var node = new GainNode(audioNode);
+            node.gain.setValue(val);
             this.add(node);
             return node;
         };
         Nodes.prototype.oscillatorNode = function (context, type, freq) {
             var audioNode = context.createOscillator();
-            var _node = new OscillatorNode(audioNode);
-            this.add(_node);
+            var node = new OscillatorNode(audioNode);
+            node.type.setValue(type);
+            node.freq.setValue(freq);
+            this.add(node);
             audioNode.start(0);
-            return _node;
+            return node;
         };
         Nodes.prototype.analyserNode = function (context) {
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
-            var _node = new AnalyserNode(audioNode);
-            this.add(_node);
-            return _node;
+            var node = new AnalyserNode(audioNode);
+            this.add(node);
+            return node;
         };
         Nodes.prototype.delayNode = function (context, val) {
             var audioNode = context.createDelay();
-            var node = new DelayNode(context);
+            var node = new DelayNode(audioNode);
+            node.delayTime.setValue(val);
             this.add(node);
             return node;
         };
@@ -398,25 +402,23 @@ var views;
             this.$el.prepend(view.$el);
         };
         NodesView.prototype.addConnectionView = function (connection) {
-            var sourceView = _views[connection.source.id];
-            var targetView = _views[connection.target.id];
-            this.$el.append(new ConnectionView(connection, this.raphael, sourceView, targetView).$el);
+            this.$el.append(new ConnectionView(connection, this.raphael).$el);
         };
         return NodesView;
     })(Backbone.View);
     views.NodesView = NodesView;    
     var ConnectionView = (function (_super) {
         __extends(ConnectionView, _super);
-        function ConnectionView(connection, raphael, sourceView, targetView) {
+        function ConnectionView(connection, raphael) {
             var _this = this;
                 _super.call(this);
-            this.sourceView = sourceView;
-            this.targetView = targetView;
+            this.sourceView = _views[connection.source.id];
+            this.targetView = _views[connection.target.id];
             this.listenTo(connection, 'destroy', function () {
                 _this.path.remove();
             });
-            this.listenTo(sourceView, 'move', this.render);
-            this.listenTo(targetView, 'move', this.render);
+            this.listenTo(this.sourceView, 'move', this.render);
+            this.listenTo(this.targetView, 'move', this.render);
             this.path = raphael.path().attr({
                 stroke: '#666',
                 fill: 'none',
@@ -442,13 +444,17 @@ var nodio;
         console.log(views);
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
-        var node1 = nodes.oscillatorNode(context, null, null);
-        var node2 = nodes.gainNode(context, null);
-        var node3 = nodes.destinationNode(context);
-        var conn1 = connections.createConnection(node1, node2);
-        var conn2 = connections.createConnection(node2, node3);
-        var conn3 = connections.createConnection(node1, node2.gain);
-        conn1.disconnect();
+        var osc1 = nodes.oscillatorNode(context, 0, 440);
+        var gain1 = nodes.gainNode(context, 0.3);
+        var gain2 = nodes.gainNode(context, 0.3);
+        var delay1 = nodes.delayNode(context, 100);
+        var dest = nodes.destinationNode(context);
+        var conn1 = connections.createConnection(osc1, gain1);
+        var conn2 = connections.createConnection(gain1, gain2);
+        var conn3 = connections.createConnection(delay1, gain2);
+        var conn4 = connections.createConnection(gain2, delay1);
+        var conn5 = connections.createConnection(osc1, gain1.gain);
+        var conn6 = connections.createConnection(gain1, dest);
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map
