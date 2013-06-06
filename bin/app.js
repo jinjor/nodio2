@@ -448,6 +448,7 @@ var nodio;
         var conn1 = connections.createConnection(node1, node2);
         var conn2 = connections.createConnection(node2, node3);
         var conn3 = connections.createConnection(node1, node2.gain);
+        conn1.disconnect();
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map

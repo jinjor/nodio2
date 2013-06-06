@@ -28,7 +28,7 @@ module nodio {
         var conn2 = connections.createConnection(node2, node3);
         var conn3 = connections.createConnection(node1, node2.gain);
         
-        //conn3.disconnect();
+        conn1.disconnect();
     });
 
 }
