@@ -47,10 +47,7 @@ var models;
             this.max = max;
             this.step = step;
             this.id = Param.createParamId();
-            this.on('change value', function (value, a, b) {
-                console.log(value);
-                console.log(a);
-                console.log(b);
+            this.on('change:value', function (_, value) {
                 onChange(value);
             });
             this.set('value', value);
@@ -64,8 +61,8 @@ var models;
     var TargetParam = (function (_super) {
         __extends(TargetParam, _super);
         function TargetParam(description, min, max, step, value) {
-                _super.call(this, description, min, max, step, value.value, function (value) {
-        value.value = value;
+                _super.call(this, description, min, max, step, value.value, function (_value) {
+        value.value = _value;
     });
             this.value = value;
         }
@@ -181,7 +178,7 @@ var models;
                 this.release
             ];
             this.set('keyState', 0);
-            this.on('change keyState', function (keyState) {
+            this.on('change:keyState', function (keyState) {
                 if(keyState == 1) {
                     var t0 = context.currentTime;
                     var t1 = t0 + _this.attack.get('value') / 1000;

@@ -47,10 +47,7 @@ module models {
         constructor(public description, public min:number, public max:number, public step:number, value: any, onChange:any) {
             super();
             this.id = Param.createParamId();
-            this.on('change value', (value,a,b) => {
-                console.log(value);
-                console.log(a);
-                console.log(b);
+            this.on('change:value', (_, value) => {
                 onChange(value);
             });
             this.set('value', value);
@@ -58,8 +55,8 @@ module models {
     }
     export class TargetParam extends Param implements ConnectionTarget {
         constructor(description, min, max, step, public value: AudioParam) {
-            super(description, min, max, step, value.value, (value) => {
-                value.value = value;
+            super(description, min, max, step, value.value, (_value) => {
+                value.value = _value;
             });
 
         }
@@ -147,7 +144,7 @@ module models {
             this.release = new Param('Release', 0, 200, 0.1, 10, (r) => { this.attack.set('value', r); });
             this.params = [this.attack, this.decay, this.sustain, this.release];
             this.set('keyState', 0);
-            this.on('change keyState', (keyState) => {
+            this.on('change:keyState', (keyState) => {
                 if(keyState == 1){
                     var t0 = context.currentTime;
                     var t1 = t0 + this.attack.get('value')/1000;
