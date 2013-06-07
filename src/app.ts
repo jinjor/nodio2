@@ -41,7 +41,7 @@ module nodio {
         var conn2 = connections.createConnection(gain1, gain2);
         var conn3 = connections.createConnection(delay1, gain2);
         var conn4 = connections.createConnection(gain2, delay1);
-        var conn5 = connections.createConnection(osc1, gain1.gain);
+        //var conn5 = connections.createConnection(osc1, gain1.gain);
         var conn6 = connections.createConnection(gain1, dest);
         
         //conn1.disconnect();

@@ -41,12 +41,21 @@ module views {
             super();
             var position = _.extend({}, Backbone.Events);
             var label = $('<label/>').text(param.description);
-            var $el = $('<div class="param"/>').css({
-                top: rnd(400) + 'px',
-                left: rnd(400) + 'px',
-                width: '100px',
-                //height: '20px',
-            }).append(label);
+            var range = $('<input type="range"/>')
+                .attr('min', param.min.toFixed(1))
+                .attr('step', param.step)
+                .attr('max', param.max)
+                .val(param.set('value'))
+                .on('change', function(){
+                    param.set('value', parseFloat($(this).val()));
+                });
+            var val = $('<label/>').text(param.get('value'));
+            //var max = $('<label/>').text(param.max);
+            var $el = $('<li class="param"/>').append(label).append(range).append(val);
+            
+            this.listenTo(param, 'change value', function(value){
+                //range.val(value);
+            });
             
             $('#holder').append($el);
             var r = Raphael($el[0], 16, 16);
