@@ -157,19 +157,22 @@ var models;
     var ADSRNode = (function (_super) {
         __extends(ADSRNode, _super);
         function ADSRNode(context, node) {
-            var _this = this;
                 _super.call(this, node, 'ADSR');
-            this.attack = new Param('Attack', 0, 200, 0.1, 5, function (a) {
-                _this.attack.set('value', a);
+            var a = 5;
+            var d = 3;
+            var s = 0.5;
+            var r = 10;
+            this.attack = new Param('Attack', 0, 200, 0.1, a, function (_a) {
+                a = _a;
             });
-            this.decay = new Param('Decay', 0, 200, 0.1, 3, function (d) {
-                _this.attack.set('value', d);
+            this.decay = new Param('Decay', 0, 200, 0.1, d, function (_d) {
+                d = _d;
             });
-            this.sustain = new Param('Sustain', 0, 1, 0.01, 0.5, function (s) {
-                _this.attack.set('value', s);
+            this.sustain = new Param('Sustain', 0, 1, 0.01, s, function (_s) {
+                s = _s;
             });
-            this.release = new Param('Release', 0, 200, 0.1, 10, function (r) {
-                _this.attack.set('value', r);
+            this.release = new Param('Release', 0, 200, 0.1, r, function (_r) {
+                r = _r;
             });
             this.params = [
                 this.attack, 
@@ -181,15 +184,15 @@ var models;
             this.on('change:keyState', function (keyState) {
                 if(keyState == 1) {
                     var t0 = context.currentTime;
-                    var t1 = t0 + _this.attack.get('value') / 1000;
+                    var t1 = t0 + a / 1000;
                     node.gain.setValueAtTime(0, t0);
                     node.gain.linearRampToValueAtTime(1, t1);
-                    node.gain.setTargetAtTime(_this.sustain.get('value'), t1, _this.decay.get('value') / 1000);
+                    node.gain.setTargetAtTime(s, t1, d / 1000);
                 } else {
                     var t0 = context.currentTime;
                     node.gain.cancelScheduledValues(t0);
                     node.gain.setValueAtTime(node.gain.value, t0);
-                    node.gain.setTargetAtTime(0, t0, _this.release.get('value') / 1000);
+                    node.gain.setTargetAtTime(0, t0, r / 1000);
                 }
             });
         }
@@ -268,7 +271,7 @@ var models;
             this.add(node);
             return node;
         };
-        Nodes.prototype.adsrNode = function (context, keyState) {
+        Nodes.prototype.adsrNode = function (context) {
             var bufsize = 1024;
             var gainNode = context.createGain();
             gainNode.gain.value = 0;
@@ -332,10 +335,12 @@ var views;
             var position = _.extend({
             }, Backbone.Events);
             var label = $('<label/>').text(param.description);
-            var range = $('<input type="range"/>').attr('min', param.min.toFixed(1)).attr('step', param.step).attr('max', param.max).val(param.set('value')).on('change', function () {
-                param.set('value', parseFloat($(this).val()));
-            });
             var val = $('<label/>').text(param.get('value'));
+            var range = $('<input type="range"/>').attr('min', param.min.toFixed(1)).attr('step', param.step).attr('max', param.max).val(param.get('value')).on('change', function () {
+                var v = $(this).val();
+                val.text(v);
+                param.set('value', parseFloat(v));
+            });
             var $el = $('<li class="param"/>').append(label).append(range).append(val);
             this.listenTo(param, 'change value', function (value) {
             });
@@ -495,15 +500,18 @@ var nodio;
         var nodesView = new views.NodesView(nodes, connections);
         $('body').append(nodesView.$el);
         var osc1 = nodes.oscillatorNode(context, 0, 440);
+        var adsr = nodes.adsrNode(context);
         var gain1 = nodes.gainNode(context, 0.3);
         var gain2 = nodes.gainNode(context, 0.3);
         var delay1 = nodes.delayNode(context, 100);
         var dest = nodes.destinationNode(context);
-        var conn1 = connections.createConnection(osc1, gain1);
+        var conn0 = connections.createConnection(osc1, adsr);
+        var conn1 = connections.createConnection(adsr, gain1);
         var conn2 = connections.createConnection(gain1, gain2);
         var conn3 = connections.createConnection(delay1, gain2);
         var conn4 = connections.createConnection(gain2, delay1);
         var conn6 = connections.createConnection(gain1, dest);
+        var conn7 = connections.createConnection(gain2, dest);
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map

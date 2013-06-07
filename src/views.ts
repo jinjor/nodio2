@@ -41,15 +41,17 @@ module views {
             super();
             var position = _.extend({}, Backbone.Events);
             var label = $('<label/>').text(param.description);
+            var val = $('<label/>').text(param.get('value'));
             var range = $('<input type="range"/>')
                 .attr('min', param.min.toFixed(1))
                 .attr('step', param.step)
                 .attr('max', param.max)
-                .val(param.set('value'))
+                .val(param.get('value'))
                 .on('change', function(){
-                    param.set('value', parseFloat($(this).val()));
+                    var v = $(this).val();
+                    val.text(v);
+                    param.set('value', parseFloat(v));
                 });
-            var val = $('<label/>').text(param.get('value'));
             //var max = $('<label/>').text(param.max);
             var $el = $('<li class="param"/>').append(label).append(range).append(val);
             

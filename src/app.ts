@@ -21,6 +21,7 @@ module nodio {
         $('body').append(nodesView.$el);
         
         var osc1 = nodes.oscillatorNode(context, 0, 440);
+        var adsr = nodes.adsrNode(context);
         var gain1 = nodes.gainNode(context, 0.3);
         var gain2 = nodes.gainNode(context, 0.3);
         var delay1 = nodes.delayNode(context, 100);
@@ -28,22 +29,22 @@ module nodio {
         /*
         nodeCollection.connect(osc1, button1, true);
         nodeCollection.connect(button1, gain1, true);
-        nodeCollection.connect(gain1, gain2, true);
-        nodeCollection.connect(gain2, delay1, true);
-        nodeCollection.connect(delay1, gain2, true);
-        nodeCollection.connect(gain2, dest, true);
+        nodeCollection.connect(gain1, gain2, true);//OK
+        nodeCollection.connect(gain2, delay1, true);//OK
+        nodeCollection.connect(delay1, gain2, true);//OK
+        nodeCollection.connect(gain2, dest, true);//OK
         nodeCollection.connect(gain2, analyzer1, true);
         nodeCollection.connect(gain1, dest, true);//OK
         */
         
-        var conn1 = connections.createConnection(osc1, gain1);
-        
+        var conn0 = connections.createConnection(osc1, adsr);
+        var conn1 = connections.createConnection(adsr, gain1);
         var conn2 = connections.createConnection(gain1, gain2);
         var conn3 = connections.createConnection(delay1, gain2);
         var conn4 = connections.createConnection(gain2, delay1);
         //var conn5 = connections.createConnection(osc1, gain1.gain);
         var conn6 = connections.createConnection(gain1, dest);
-        
+        var conn7 = connections.createConnection(gain2, dest);
         //conn1.disconnect();
     });
 

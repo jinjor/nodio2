@@ -138,24 +138,28 @@ module models {
         release: Param;
         constructor(context, node: any) {
             super(node, 'ADSR');
-            this.attack = new Param('Attack', 0, 200, 0.1, 5, (a) => { this.attack.set('value', a); });
-            this.decay = new Param('Decay', 0, 200, 0.1, 3, (d) => { this.attack.set('value', d); });
-            this.sustain = new Param('Sustain', 0, 1, 0.01, 0.5, (s) => { this.attack.set('value', s); });
-            this.release = new Param('Release', 0, 200, 0.1, 10, (r) => { this.attack.set('value', r); });
+            var a = 5;
+            var d = 3;
+            var s = 0.5;
+            var r = 10;
+            this.attack = new Param('Attack', 0, 200, 0.1, a, (_a) => { a = _a; });
+            this.decay = new Param('Decay', 0, 200, 0.1, d, (_d) => { d = _d; });
+            this.sustain = new Param('Sustain', 0, 1, 0.01, s, (_s) => { s = _s; });
+            this.release = new Param('Release', 0, 200, 0.1, r, (_r) => { r = _r; });
             this.params = [this.attack, this.decay, this.sustain, this.release];
             this.set('keyState', 0);
             this.on('change:keyState', (keyState) => {
                 if(keyState == 1){
                     var t0 = context.currentTime;
-                    var t1 = t0 + this.attack.get('value')/1000;
+                    var t1 = t0 + a/1000;
                     node.gain.setValueAtTime(0, t0);
                     node.gain.linearRampToValueAtTime(1, t1);
-                    node.gain.setTargetAtTime(this.sustain.get('value'), t1, this.decay.get('value')/1000);
+                    node.gain.setTargetAtTime(s, t1, d/1000);
                 } else{
                     var t0 = context.currentTime;
                     node.gain.cancelScheduledValues(t0);
                     node.gain.setValueAtTime(node.gain.value, t0);
-                    node.gain.setTargetAtTime(0, t0, this.release.get('value')/1000);
+                    node.gain.setTargetAtTime(0, t0, r/1000);
                 }
             });
         }
@@ -251,7 +255,7 @@ module models {
             this.add(node);
             return node
         }
-        adsrNode(context, keyState){
+        adsrNode(context){
             var bufsize = 1024;
             var gainNode = context.createGain();
             gainNode.gain.value = 0;
