@@ -151,12 +151,9 @@ module views {
         constructor(nodes, connections: models.Connections) {
             super();
             var that = this;
-            this.$el = $('<div/>').css({
-                position: 'absolute',
-                background: '#dde',
-                overflow: 'hidden',
+            this.$el = $('<div class="container"/>').css({
                 width: '800px',
-                height: '600px',
+                height: '600px'
             });
             this.raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.listenTo(nodes, 'add', this.addNodeView);

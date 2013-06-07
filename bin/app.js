@@ -437,10 +437,7 @@ var views;
         function NodesView(nodes, connections) {
                 _super.call(this);
             var that = this;
-            this.$el = $('<div/>').css({
-                position: 'absolute',
-                background: '#dde',
-                overflow: 'hidden',
+            this.$el = $('<div class="container"/>').css({
                 width: '800px',
                 height: '600px'
             });
