@@ -318,6 +318,9 @@ var models;
         }
         TemporaryConnection.prototype.setSource = function (source) {
             if(source == null || !source.isSource) {
+                if(source) {
+                    source.trigger('cancelSource');
+                }
                 if(this.source) {
                     this.source.trigger('cancelSource');
                 }
@@ -329,14 +332,14 @@ var models;
             return;
         };
         TemporaryConnection.prototype.setTarget = function (target) {
-            if(!this.source) {
-                return;
-            }
-            if(target == null || !target.isTarget) {
+            if(!this.source || target == null || !target.isTarget) {
                 if(this.target) {
                     this.target.trigger('cancelTarget');
                 }
                 this.target = null;
+                return;
+            }
+            if(this.source == target) {
                 return;
             }
             this.target = target;
@@ -473,18 +476,6 @@ var views;
             }).mouseup(function () {
                 tmpConn.resolve();
             });
-            this.listenTo(tmpConn, 'setToSource', function () {
-                body.addClass('source');
-            });
-            this.listenTo(tmpConn, 'cancelSource', function () {
-                body.removeClass('source');
-            });
-            this.listenTo(tmpConn, 'setToTarget', function () {
-                body.addClass('target');
-            });
-            this.listenTo(tmpConn, 'cancelTarget', function () {
-                body.removeClass('target');
-            });
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400) + 'px',
@@ -498,6 +489,18 @@ var views;
                 },
                 handle: header
             }).append(header);
+            this.listenTo(node, 'setToSource', function () {
+                $el.addClass('source');
+            });
+            this.listenTo(node, 'cancelSource', function () {
+                $el.removeClass('source');
+            });
+            this.listenTo(node, 'setToTarget', function () {
+                $el.addClass('target');
+            });
+            this.listenTo(node, 'cancelTarget', function () {
+                $el.removeClass('target');
+            });
             this.paramViews.forEach(function (pv) {
                 body.append(pv.$el);
             });
@@ -611,6 +614,8 @@ var views;
                 'stroke-width': 3,
                 'stroke-linecap': 'round',
                 'arrow-end': 'classic-wide-long'
+            }).click(function () {
+                connection.remove();
             });
             this.render();
         }
@@ -647,9 +652,9 @@ var nodio;
         var conn2 = connections.createConnection(gain1, gain2);
         var conn3 = connections.createConnection(delay1, gain2);
         var conn4 = connections.createConnection(gain2, delay1);
-        var conn5 = connections.createConnection(gain1, analyser1);
-        var conn6 = connections.createConnection(gain1, dest);
-        var conn7 = connections.createConnection(gain2, dest);
+        var conn5 = connections.createConnection(analyser1, dest);
+        var conn6 = connections.createConnection(gain1, analyser1);
+        var conn7 = connections.createConnection(gain2, analyser1);
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map

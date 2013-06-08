@@ -130,20 +130,6 @@ module views {
                 tmpConn.resolve();
             });
             
-            this.listenTo(tmpConn, 'setToSource', () => {
-                body.addClass('source');
-            });
-            this.listenTo(tmpConn, 'cancelSource', () => {
-                body.removeClass('source');
-            });
-            this.listenTo(tmpConn, 'setToTarget', () => {
-                body.addClass('target');
-            });
-            this.listenTo(tmpConn, 'cancelTarget', () => {
-                body.removeClass('target');
-            });
-            
-            
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400)+'px',
@@ -157,6 +143,20 @@ module views {
                 },
                 handle: header
             }).append(header);
+            
+            this.listenTo(node, 'setToSource', () => {
+                $el.addClass('source');
+            });
+            this.listenTo(node, 'cancelSource', () => {
+                $el.removeClass('source');
+            });
+            this.listenTo(node, 'setToTarget', () => {
+                $el.addClass('target');
+            });
+            this.listenTo(node, 'cancelTarget', () => {
+                $el.removeClass('target');
+            });
+            
             this.paramViews.forEach(function(pv){
                body.append(pv.$el)
             });
@@ -269,7 +269,9 @@ module views {
                 fill: 'none',
                 'stroke-width': 3,
                 'stroke-linecap': 'round',
-                'arrow-end' :'classic-wide-long'
+                'arrow-end' :'classic-wide-long',
+            }).click(() => {
+                connection.remove();
             });
             
             this.render();

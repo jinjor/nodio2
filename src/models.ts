@@ -302,6 +302,9 @@ module models {
         private target: Node = null;
         setSource(source: Node){
             if(source == null || !source.isSource){
+                if(source){
+                    source.trigger('cancelSource');
+                }
                 if(this.source){
                     this.source.trigger('cancelSource');
                 }
@@ -313,14 +316,14 @@ module models {
             return;
         }
         setTarget(target: Node){
-            if(!this.source){
-                return;
-            }
-            if(target == null || !target.isTarget){
+            if(!this.source || target == null || !target.isTarget){
                 if(this.target){
                     this.target.trigger('cancelTarget');
                 }
                 this.target = null;
+                return;
+            }
+            if(this.source == target){
                 return;
             }
             this.target = target;

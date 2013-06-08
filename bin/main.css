@@ -17,16 +17,23 @@ svg path{
     border: solid 1px #666;
     background-color:#fff;
     border-radius:3px;
+    -moz-box-shadow: 1px 1px 10px #000;
+    -webkit-box-shadow: 1px 1px 10px #000;
 }
-.node .source {
+.node.source {
     background-color:#fdc;
+    -moz-box-shadow: 1px 1px 10px #faa;
+    -webkit-box-shadow: 1px 1px 10px #faa;
 }
-.node .target {
-    background-color:#fdc;
+.node.target {
+    background-color:#cdf;
+    -moz-box-shadow: 1px 1px 10px #aaf;
+    -webkit-box-shadow: 1px 1px 10px #aaf;
 }
 .node_header {
     background-color:#acf;
 }
+
 .xButton {
     float:right;
     margin-top:0px;
@@ -71,3 +78,12 @@ canvas.analyser {
     mergin-top:10px;
     mergin-bottom:10px;
 }
+
+path{
+    pointer-events: all;
+}
+path:hover{
+    stroke: #a66;
+    arrow-end-color: #a66;
+}
+
