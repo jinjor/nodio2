@@ -71,10 +71,13 @@ var models;
     models.TargetParam = TargetParam;    
     var Node = (function (_super) {
         __extends(Node, _super);
-        function Node(audioNode, description) {
+        function Node(audioNode, description, isSource, isTarget) {
                 _super.call(this);
             this.audioNode = audioNode;
             this.description = description;
+            this.isSource = isSource;
+            this.isTarget = isTarget;
+            this.url = 'node';
             this.id = Node.createParamId();
             this.targets = {
             };
@@ -84,8 +87,12 @@ var models;
             return 'node' + _id++;
         };
         Node.prototype.connect = function (to) {
-            this.audioNode.connect(to.value);
-            this.targets[to.id] = to;
+            try  {
+                this.audioNode.connect(to.value);
+                this.targets[to.id] = to;
+            } catch (e) {
+                console.log(e);
+            }
         };
         Node.prototype.disconnect = function (to) {
             this.audioNode.disconnect(to.value);
@@ -96,13 +103,16 @@ var models;
                 }
             }
         };
+        Node.prototype.remove = function () {
+            this.destroy();
+        };
         return Node;
     })(Backbone.Model);
     models.Node = Node;    
     var GainNode = (function (_super) {
         __extends(GainNode, _super);
         function GainNode(node) {
-                _super.call(this, node, 'Gain');
+                _super.call(this, node, 'Gain', true, true);
             this.gain = new TargetParam('Gain', 0, 1, 0.01, node.gain);
             this.params = [
                 this.gain
@@ -114,7 +124,7 @@ var models;
     var DelayNode = (function (_super) {
         __extends(DelayNode, _super);
         function DelayNode(node) {
-                _super.call(this, node, 'Delay');
+                _super.call(this, node, 'Delay', true, true);
             this.delayTime = new TargetParam('DelayTime', 0.0, 0.5, 0.01, node.delayTime);
             this.params = [
                 this.delayTime
@@ -126,7 +136,7 @@ var models;
     var OscillatorNode = (function (_super) {
         __extends(OscillatorNode, _super);
         function OscillatorNode(node) {
-                _super.call(this, node, 'Oscillator');
+                _super.call(this, node, 'Oscillator', true, false);
             this.type = new Param('Type', 0, 3, 1, 0, function (value) {
                 console.log(value);
                 node.type = parseInt(value);
@@ -143,7 +153,8 @@ var models;
     var AnalyserNode = (function (_super) {
         __extends(AnalyserNode, _super);
         function AnalyserNode(node) {
-                _super.call(this, node, 'Analyser');
+                _super.call(this, node, 'Analyser', true, true);
+            this.node = node;
             this.mode = new Param('Mode', 0, 1, 1, node.mode, function (value) {
                 node.mode = value;
             });
@@ -157,7 +168,7 @@ var models;
     var ADSRNode = (function (_super) {
         __extends(ADSRNode, _super);
         function ADSRNode(context, node) {
-                _super.call(this, node, 'ADSR');
+                _super.call(this, node, 'ADSR', true, true);
             var a = 5;
             var d = 3;
             var s = 0.5;
@@ -181,7 +192,7 @@ var models;
                 this.release
             ];
             this.set('keyState', 0);
-            this.on('change:keyState', function (keyState) {
+            this.on('change:keyState', function (_, keyState) {
                 if(keyState == 1) {
                     var t0 = context.currentTime;
                     var t1 = t0 + a / 1000;
@@ -202,7 +213,7 @@ var models;
     var DestinationNode = (function (_super) {
         __extends(DestinationNode, _super);
         function DestinationNode(node) {
-                _super.call(this, node, 'Destination');
+                _super.call(this, node, 'Destination', false, true);
             this.params = [];
         }
         return DestinationNode;
@@ -214,19 +225,11 @@ var models;
                 _super.call(this);
             this.source = source;
             this.target = target;
-            this.listenTo(source, 'destroy', this.destroyBySource);
-            this.listenTo(target, 'destroy', this.destroyByTarget);
+            this.listenTo(source, 'destroy', this.remove);
+            this.listenTo(target, 'destroy', this.remove);
             source.connect(target);
         }
-        Connection.prototype.destroyBySource = function () {
-            this.stopListening(this.target);
-            this.destroy();
-        };
-        Connection.prototype.destroyByTarget = function () {
-            this.stopListening(this.source);
-            this.destroy();
-        };
-        Connection.prototype.disconnect = function () {
+        Connection.prototype.remove = function () {
             this.stopListening(this.target);
             this.stopListening(this.source);
             this.source.disconnect(this.target);
@@ -290,28 +293,86 @@ var models;
     models.Nodes = Nodes;    
     var Connections = (function (_super) {
         __extends(Connections, _super);
-        function Connections() {
-            _super.apply(this, arguments);
-
+        function Connections(tmp) {
+            var _this = this;
+                _super.call(this);
+            this.listenTo(tmp, 'resolve', function (st) {
+                _this.createConnection(st.source, st.target);
+            });
         }
-        Connections.prototype.createConnection = function (from, to) {
-            var connection = new Connection(from, to);
+        Connections.prototype.createConnection = function (source, target) {
+            var connection = new Connection(source, target);
             this.add(connection);
             return connection;
         };
         return Connections;
     })(Backbone.Collection);
     models.Connections = Connections;    
+    var TemporaryConnection = (function (_super) {
+        __extends(TemporaryConnection, _super);
+        function TemporaryConnection() {
+            _super.apply(this, arguments);
+
+            this.source = null;
+            this.target = null;
+        }
+        TemporaryConnection.prototype.setSource = function (source) {
+            if(source == null || !source.isSource) {
+                if(this.source) {
+                    this.source.trigger('cancelSource');
+                }
+                this.source = null;
+                return;
+            }
+            this.source = source;
+            source.trigger('setToSource');
+            return;
+        };
+        TemporaryConnection.prototype.setTarget = function (target) {
+            if(!this.source) {
+                return;
+            }
+            if(target == null || !target.isTarget) {
+                if(this.target) {
+                    this.target.trigger('cancelTarget');
+                }
+                this.target = null;
+                return;
+            }
+            this.target = target;
+            target.trigger('setToTarget');
+            return;
+        };
+        TemporaryConnection.prototype.resolve = function () {
+            if(this.source && this.target && this.source != this.target) {
+                this.trigger('resolve', {
+                    source: this.source,
+                    target: this.target
+                });
+            }
+            this.setSource(null);
+            this.setTarget(null);
+        };
+        return TemporaryConnection;
+    })(Backbone.Model);
+    models.TemporaryConnection = TemporaryConnection;    
 })(models || (models = {}));
 var views;
 (function (views) {
     var createBezierPath = function (x1, y1, x4, y4) {
         var dx = x4 - x1;
         var dy = y4 - y1;
-        var x2 = x1 + dx / 2;
-        var x3 = x1 + dx / 2;
-        var y2 = y1;
-        var y3 = y4;
+        if(false) {
+            var x2 = x1 + dx / 2;
+            var x3 = x1 + dx / 2;
+            var y2 = y1;
+            var y3 = y4;
+        } else {
+            var x2 = x1;
+            var x3 = x4;
+            var y2 = y1 + dy / 2;
+            var y3 = y1 + dy / 2;
+        }
         return [
             'M', 
             x1.toFixed(3), 
@@ -381,11 +442,12 @@ var views;
         return Param;
     })(Backbone.Model);
     views.Param = Param;    
+    var globalKeyState = false;
     var _views = {
     };
     var NodeView = (function (_super) {
         __extends(NodeView, _super);
-        function NodeView(node) {
+        function NodeView(node, tmpConn) {
             var _this = this;
                 _super.call(this);
             this.listenTo(node, 'destroy', function () {
@@ -397,6 +459,32 @@ var views;
                 return view;
             });
             var label = $('<label/>').text(node.description);
+            var xButton = $('<div class="xButton"/>').on('click', function () {
+                node.remove();
+            });
+            var header = $('<div class="node_header"/>').append(label).append(xButton);
+            var body = $('<div class="node_body"/>').mousedown(function () {
+                tmpConn.setSource(node);
+                tmpConn.setTarget(node);
+            }).mouseenter(function () {
+                tmpConn.setTarget(node);
+            }).mouseleave(function () {
+                tmpConn.setTarget(null);
+            }).mouseup(function () {
+                tmpConn.resolve();
+            });
+            this.listenTo(tmpConn, 'setToSource', function () {
+                body.addClass('source');
+            });
+            this.listenTo(tmpConn, 'cancelSource', function () {
+                body.removeClass('source');
+            });
+            this.listenTo(tmpConn, 'setToTarget', function () {
+                body.addClass('target');
+            });
+            this.listenTo(tmpConn, 'cancelTarget', function () {
+                body.removeClass('target');
+            });
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400) + 'px',
@@ -407,11 +495,53 @@ var views;
                 },
                 stop: function (e, ui) {
                     _this.resetPosition();
-                }
-            }).append(label);
+                },
+                handle: header
+            }).append(header);
             this.paramViews.forEach(function (pv) {
-                $el.append(pv.$el);
+                body.append(pv.$el);
             });
+            if(node.description == "ADSR") {
+                var button = $('<Button/>').text('Note On').on('mousedown', function () {
+                    globalKeyState = true;
+                    node.set('keyState', 1);
+                }).on('mouseup', function () {
+                    globalKeyState = false;
+                    node.set('keyState', 0);
+                }).on('mouseenter', function () {
+                    if(globalKeyState) {
+                        node.set('keyState', 1);
+                    }
+                }).on('mouseleave', function () {
+                    node.set('keyState', 0);
+                });
+                body.append(button);
+            }
+            $el.append(body);
+            if(node.description == "Analyser") {
+                var _node = node;
+                var canvas = document.createElement('canvas');
+                var sample = 1024;
+                var height = 256;
+                canvas.width = sample;
+                canvas.height = height;
+                $el.append($(canvas).addClass('analyser'));
+                var ctx = canvas.getContext("2d");
+                setInterval(function () {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, sample, height);
+                    var data = new Uint8Array(sample);
+                    if(_node.mode.get('value') == 0) {
+                        _node.node.getByteFrequencyData(data);
+                    } else {
+                        _node.node.getByteTimeDomainData(data);
+                    }
+                    for(var i = 0; i < sample; ++i) {
+                        ctx.fillStyle = '#0f0';
+                        ctx.fillRect(i, height - data[i], 1, data[i]);
+                    }
+                }, 100);
+            }
             this.$el = $el;
             this.resetPosition();
             setTimeout(function () {
@@ -420,10 +550,10 @@ var views;
         }
         NodeView.prototype.resetPosition = function () {
             var offset = this.$el.offset();
-            this.inX = offset.left;
-            this.inY = offset.top + 10;
-            this.outX = offset.left + this.$el.width();
-            this.outY = offset.top + this.$el.height() / 2;
+            this.inX = offset.left + this.$el.width() / 2;
+            this.inY = offset.top;
+            this.outX = offset.left + this.$el.width() / 2;
+            this.outY = offset.top + this.$el.height();
             this.paramViews.forEach(function (pv) {
                 pv.move();
             });
@@ -434,19 +564,23 @@ var views;
     views.NodeView = NodeView;    
     var NodesView = (function (_super) {
         __extends(NodesView, _super);
-        function NodesView(nodes, connections) {
+        function NodesView(nodes, connections, tmpConn) {
                 _super.call(this);
+            this.tmpConn = tmpConn;
             var that = this;
             this.$el = $('<div class="container"/>').css({
                 width: '800px',
                 height: '600px'
-            });
+            }).mouseup(function () {
+                tmpConn.setSource(null);
+                tmpConn.setTarget(null);
+            }).disableSelection();
             this.raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.listenTo(nodes, 'add', this.addNodeView);
             this.listenTo(connections, 'add', this.addConnectionView);
         }
         NodesView.prototype.addNodeView = function (node) {
-            var view = new NodeView(node);
+            var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function () {
                 delete _views[view.id];
             });
@@ -471,16 +605,20 @@ var views;
             });
             this.listenTo(this.sourceView, 'move', this.render);
             this.listenTo(this.targetView, 'move', this.render);
-            this.path = raphael.path().attr({
+            this.path = raphael.path('M0 1L90 0').attr({
                 stroke: '#666',
                 fill: 'none',
                 'stroke-width': 3,
-                'stroke-linecap': 'round'
+                'stroke-linecap': 'round',
+                'arrow-end': 'classic-wide-long'
             });
             this.render();
         }
         ConnectionView.prototype.render = function () {
             var path = createBezierPath(this.sourceView.outX, this.sourceView.outY, this.targetView.inX, this.targetView.inY);
+            if(path == 'M,0.000,0.000,C,0.000,0.000,0.000,0.000,0.000,0.000') {
+                return;
+            }
             this.path.attr('path', path);
         };
         return ConnectionView;
@@ -490,23 +628,26 @@ var views;
 var nodio;
 (function (nodio) {
     var context = new webkitAudioContext();
+    var tmpConnection = new models.TemporaryConnection();
     $(function () {
-        var connections = new models.Connections();
+        var connections = new models.Connections(tmpConnection);
         var nodes = new models.Nodes();
         console.log(views);
-        var nodesView = new views.NodesView(nodes, connections);
+        var nodesView = new views.NodesView(nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
         var osc1 = nodes.oscillatorNode(context, 0, 440);
         var adsr = nodes.adsrNode(context);
         var gain1 = nodes.gainNode(context, 0.3);
         var gain2 = nodes.gainNode(context, 0.3);
         var delay1 = nodes.delayNode(context, 100);
+        var analyser1 = nodes.analyserNode(context);
         var dest = nodes.destinationNode(context);
         var conn0 = connections.createConnection(osc1, adsr);
         var conn1 = connections.createConnection(adsr, gain1);
         var conn2 = connections.createConnection(gain1, gain2);
         var conn3 = connections.createConnection(delay1, gain2);
         var conn4 = connections.createConnection(gain2, delay1);
+        var conn5 = connections.createConnection(gain1, analyser1);
         var conn6 = connections.createConnection(gain1, dest);
         var conn7 = connections.createConnection(gain2, dest);
     });

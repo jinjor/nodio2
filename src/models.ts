@@ -63,6 +63,7 @@ module models {
     }
     
     export class Node extends Backbone.Model implements ConnectionTarget {
+        url = 'node';
         id: string;
         private targets: any;
         value: any;
@@ -71,15 +72,21 @@ module models {
             return 'node' + _id++;
         }
         params: Param[];
-        constructor(private audioNode, public description) {
+        constructor(private audioNode, public description, public isSource:bool, public isTarget:bool) {
             super();
             this.id = Node.createParamId();
             this.targets = {};
             this.value = audioNode;
         }
         connect(to: ConnectionTarget) {
-            this.audioNode.connect(to.value);
-            this.targets[to.id] = to;
+            
+            try{
+                this.audioNode.connect(to.value);
+                this.targets[to.id] = to;
+            }catch(e){
+                console.log(e);
+            }
+            
         }
         disconnect(to: ConnectionTarget) {
             this.audioNode.disconnect(to.value);
@@ -90,12 +97,15 @@ module models {
                 }
             }
         }
+        remove() {
+            this.destroy();
+        }
     }
     
     export class GainNode extends Node  {
         gain: TargetParam;
         constructor(node: any) {
-            super(node, 'Gain');
+            super(node, 'Gain', true, true);
             this.gain = new TargetParam('Gain', 0, 1, 0.01, node.gain);
             this.params = [this.gain];
         }
@@ -103,7 +113,7 @@ module models {
     export class DelayNode extends Node {
         delayTime: TargetParam;
         constructor(node: any) {
-            super(node, 'Delay');
+            super(node, 'Delay', true, true);
             this.delayTime = new TargetParam('DelayTime', 0.0, 0.5, 0.01, node.delayTime);
             this.params = [this.delayTime];
         }
@@ -112,7 +122,7 @@ module models {
         type: Param;
         freq: TargetParam;
         constructor(node: any) {
-            super(node, 'Oscillator');
+            super(node, 'Oscillator', true, false);
             this.type = new Param('Type', 0, 3, 1, 0, (value) => {
                 console.log(value);
                 node.type = parseInt(value);
@@ -123,8 +133,8 @@ module models {
     }
     export class AnalyserNode extends Node {
         mode: Param;
-        constructor(node: any) {
-            super(node, 'Analyser');
+        constructor(public node: any) {
+            super(node, 'Analyser', true, true);
             this.mode = new Param('Mode', 0, 1, 1, node.mode, (value) => {
                 node.mode = value;
             });
@@ -137,7 +147,7 @@ module models {
         sustain: Param;
         release: Param;
         constructor(context, node: any) {
-            super(node, 'ADSR');
+            super(node, 'ADSR', true, true);
             var a = 5;
             var d = 3;
             var s = 0.5;
@@ -148,7 +158,7 @@ module models {
             this.release = new Param('Release', 0, 200, 0.1, r, (_r) => { r = _r; });
             this.params = [this.attack, this.decay, this.sustain, this.release];
             this.set('keyState', 0);
-            this.on('change:keyState', (keyState) => {
+            this.on('change:keyState', (_, keyState) => {
                 if(keyState == 1){
                     var t0 = context.currentTime;
                     var t1 = t0 + a/1000;
@@ -166,7 +176,7 @@ module models {
     }
     export class DestinationNode extends Node {
         constructor(node: any) {
-            super(node, 'Destination');
+            super(node, 'Destination', false, true);
             this.params = [];
         }
     }
@@ -174,19 +184,21 @@ module models {
     export class Connection extends Backbone.Model {
         constructor(public source: Node, public target: ConnectionTarget) {
             super();
-            this.listenTo(source, 'destroy', this.destroyBySource);
-            this.listenTo(target, 'destroy', this.destroyByTarget);
+            this.listenTo(source, 'destroy', this.remove);
+            this.listenTo(target, 'destroy', this.remove);
             source.connect(target);
-        }
+            
+        }/*
         private destroyBySource(){
             this.stopListening(this.target);
+            this.source.dis
             this.destroy();
         }
         private destroyByTarget(){
             this.stopListening(this.source);
             this.destroy();
-        }
-        public disconnect(){
+        }*/
+        public remove(){
             this.stopListening(this.target);
             this.stopListening(this.source);
             this.source.disconnect(this.target);
@@ -272,10 +284,58 @@ module models {
     }
     
     export class Connections extends Backbone.Collection {
-        createConnection(from, to) {
-            var connection = new Connection(from, to);
+        constructor(tmp: TemporaryConnection){
+            super();
+            this.listenTo(tmp, 'resolve', (st) => {
+                this.createConnection(st.source, st.target);
+            });
+        }        
+        createConnection(source: Node, target: Node) {
+            var connection = new Connection(source, target);
             this.add(connection);
             return connection;
+        }
+    }
+    
+    export class TemporaryConnection extends Backbone.Model{
+        private source: Node = null;
+        private target: Node = null;
+        setSource(source: Node){
+            if(source == null || !source.isSource){
+                if(this.source){
+                    this.source.trigger('cancelSource');
+                }
+                this.source = null;
+                return;
+            }
+            this.source = source;
+            source.trigger('setToSource');
+            return;
+        }
+        setTarget(target: Node){
+            if(!this.source){
+                return;
+            }
+            if(target == null || !target.isTarget){
+                if(this.target){
+                    this.target.trigger('cancelTarget');
+                }
+                this.target = null;
+                return;
+            }
+            this.target = target;
+            target.trigger('setToTarget');
+            return;
+        }
+        resolve() {
+            if(this.source && this.target && this.source != this.target){
+                this.trigger('resolve', {
+                    source: this.source,
+                    target: this.target
+                });
+            }
+            this.setSource(null);
+            this.setTarget(null);
         }
     }
    

@@ -13,16 +13,17 @@ module views {
         var dx = x4 - x1;
         var dy = y4 - y1;
         //if(Math.abs(dx) > Math.abs(dy)){
+        if(false){
             var x2 = x1 + dx/2;
             var x3 = x1 + dx/2;
             var y2 = y1;
             var y3 = y4;
-        /*}else{
+        }else{
             var x2 = x1;
             var x3 = x4;
             var y2 = y1 + dy/2;
             var y3 = y1 + dy/2;
-        }*/
+        }
         return ['M', x1.toFixed(3), y1.toFixed(3),
                 'C', x2.toFixed(3), y2.toFixed(3),
                      x3.toFixed(3), y3.toFixed(3),
@@ -92,6 +93,8 @@ module views {
         }
     }
     
+    
+    var globalKeyState = false;
     var _views = {};
     export class NodeView extends Backbone.View {
         paramViews: any;
@@ -100,7 +103,7 @@ module views {
         outX: number;
         outY: number;
         
-        constructor(node: models.Node) {
+        constructor(node: models.Node, tmpConn: models.TemporaryConnection) {
             super();
             this.listenTo(node, 'destroy', () => {
                 this.remove();
@@ -110,7 +113,37 @@ module views {
                 _views[p.id] = view;
                 return view;
             });
+            
             var label = $('<label/>').text(node.description);
+            var xButton = $('<div class="xButton"/>').on('click', () => {
+                node.remove();
+            });
+            var header = $('<div class="node_header"/>').append(label).append(xButton);
+            var body = $('<div class="node_body"/>').mousedown(() => {
+                tmpConn.setSource(node);
+                tmpConn.setTarget(node);
+            }).mouseenter(() => {
+                tmpConn.setTarget(node);
+            }).mouseleave(() => {
+                tmpConn.setTarget(null);
+            }).mouseup(() => {
+                tmpConn.resolve();
+            });
+            
+            this.listenTo(tmpConn, 'setToSource', () => {
+                body.addClass('source');
+            });
+            this.listenTo(tmpConn, 'cancelSource', () => {
+                body.removeClass('source');
+            });
+            this.listenTo(tmpConn, 'setToTarget', () => {
+                body.addClass('target');
+            });
+            this.listenTo(tmpConn, 'cancelTarget', () => {
+                body.removeClass('target');
+            });
+            
+            
             var $el = $('<div class="node"/>').css({
                 position: 'absolute',
                 top: rnd(400)+'px',
@@ -121,11 +154,52 @@ module views {
                 },
                 stop: (e, ui) =>{
                     this.resetPosition();
-                }
-            }).append(label);
+                },
+                handle: header
+            }).append(header);
             this.paramViews.forEach(function(pv){
-               $el.append(pv.$el)
+               body.append(pv.$el)
             });
+            if(node.description == "ADSR"){
+                var button = $('<Button/>').text('Note On')
+                    .on('mousedown', () => {
+                        globalKeyState = true;
+                        node.set('keyState', 1);
+                    }).on('mouseup', () => {
+                        globalKeyState = false;
+                        node.set('keyState', 0);
+                    }).on('mouseenter', () => {
+                        if(globalKeyState){
+                            node.set('keyState', 1);
+                        }
+                    }).on('mouseleave', () => {
+                        node.set('keyState', 0);
+                    });
+                body.append(button);
+            }
+            $el.append(body);
+            if(node.description == "Analyser"){
+                var _node: any = node;
+                var canvas:any = document.createElement('canvas');
+                var sample = 1024;
+                var height = 256
+                canvas.width = sample;
+                canvas.height = height;
+                $el.append($(canvas).addClass('analyser'));
+                var ctx = canvas.getContext("2d");
+                setInterval(() => {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, sample, height);
+                    var data = new Uint8Array(sample);
+                    if(_node.mode.get('value') == 0) _node.node.getByteFrequencyData(data); //Spectrum Data
+                    else _node.node.getByteTimeDomainData(data); //Waveform Data
+                    for(var i = 0; i < sample; ++i) {
+                        ctx.fillStyle = '#0f0'
+                        ctx.fillRect(i, height - data[i], 1, data[i]);
+                    }
+                }, 100);
+            }
+            
             this.$el = $el;
             this.resetPosition();
             setTimeout(()=>{
@@ -135,10 +209,10 @@ module views {
         }
         private resetPosition(){
             var offset = this.$el.offset();
-            this.inX = offset.left;
-            this.inY = offset.top + 10;
-            this.outX = offset.left + this.$el.width();
-            this.outY = offset.top + this.$el.height() / 2;
+            this.inX = offset.left + this.$el.width() / 2;
+            this.inY = offset.top;
+            this.outX = offset.left + this.$el.width() / 2;
+            this.outY = offset.top + this.$el.height();
             this.paramViews.forEach(function(pv){
                 pv.move();
             });
@@ -148,20 +222,23 @@ module views {
     
     export class NodesView extends Backbone.View {
         raphael: any;
-        constructor(nodes, connections: models.Connections) {
+        constructor(nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
             super();
             var that = this;
             this.$el = $('<div class="container"/>').css({
                 width: '800px',
                 height: '600px'
-            });
+            }).mouseup(() => {
+                tmpConn.setSource(null);
+                tmpConn.setTarget(null);
+            }).disableSelection();
             this.raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.listenTo(nodes, 'add', this.addNodeView);
             this.listenTo(connections, 'add', this.addConnectionView);
             
         }
         addNodeView(node) {
-            var view = new NodeView(node);
+            var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function(){
                 delete _views[view.id];
             });
@@ -186,14 +263,16 @@ module views {
             });
             this.listenTo(this.sourceView, 'move', this.render);
             this.listenTo(this.targetView, 'move', this.render);
-            this.path = raphael.path().attr({
+            
+            this.path = raphael.path('M0 1L90 0').attr({//TODO
                 stroke: '#666',
                 fill: 'none',
                 'stroke-width': 3,
-                'stroke-linecap': 'round'
+                'stroke-linecap': 'round',
+                'arrow-end' :'classic-wide-long'
             });
-            this.render();
             
+            this.render();
         }
         private render() {
             var path = createBezierPath(
@@ -201,6 +280,9 @@ module views {
                 this.sourceView.outY,
                 this.targetView.inX,
                 this.targetView.inY);
+            if(path == 'M,0.000,0.000,C,0.000,0.000,0.000,0.000,0.000,0.000'){//TODO
+                return;
+            }
             this.path.attr('path', path);
         }
     }

@@ -15,15 +15,41 @@ svg path{
 .node {
     width: 200px;
     border: solid 1px #666;
-    background-color:#479;
+    background-color:#fff;
+    border-radius:3px;
 }
+.node .source {
+    background-color:#fdc;
+}
+.node .target {
+    background-color:#fdc;
+}
+.node_header {
+    background-color:#acf;
+}
+.xButton {
+    float:right;
+    margin-top:0px;
+    width: 20px;
+    height: 10px;
+    -webkit-border-bottom-right-radius: 3px;  
+    -webkit-border-bottom-left-radius: 3px;  
+    -moz-border-radius-bottomright: 3px;  
+    -moz-border-radius-bottomleft: 3px;  
+    border-right:solid 1px #555;
+    border-left:solid 1px #555;
+    border-bottom:solid 1px #555;
+}
+.xButton:hover{
+    background-color:#954;
+}
+
 .node label{
     font-size:14px;
     vertical-align:center;
 }
 .param {
     width: 200px;
-    background-color:#aaa;
 }
 .param label{
     font-size:14px;
@@ -33,4 +59,15 @@ svg path{
     position: absolute;
     background: #222;
     overflow: hidden;
+}
+
+input[type=range]{
+    width: 80px;
+}
+canvas.analyser {
+    border: inset 1px;
+    width:198px;
+    height:99px;
+    mergin-top:10px;
+    mergin-bottom:10px;
 }
