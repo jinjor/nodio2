@@ -93,19 +93,29 @@ module views {
         }
     }
     
+    export class NodeViewModel extends Backbone.Model {
+        constructor(root:string, nodeId:string) {
+            super();
+            this.url = root + '/nodeviews/' + nodeId;
+            this.save();
+        }
+    }
     
     var globalKeyState = false;
     var _views = {};
     export class NodeView extends Backbone.View {
+        private viewModel: NodeViewModel;
         paramViews: any;
         inX: number;
         inY: number;
         outX: number;
         outY: number;
         
-        constructor(node: models.Node, tmpConn: models.TemporaryConnection) {
+        constructor(root:string, node: models.Node, tmpConn: models.TemporaryConnection) {
             super();
+            this.viewModel = new NodeViewModel(root, node.id);
             this.listenTo(node, 'destroy', () => {
+                this.viewModel.destroy();
                 this.remove();
             });
             this.paramViews = node.params.map(function(p: models.Param){
@@ -165,6 +175,7 @@ module views {
                     .on('mousedown', () => {
                         globalKeyState = true;
                         node.set('keyState', 1);
+                        return false;
                     }).on('mouseup', () => {
                         globalKeyState = false;
                         node.set('keyState', 0);
@@ -216,13 +227,15 @@ module views {
             this.paramViews.forEach(function(pv){
                 pv.move();
             });
+            this.viewModel.set('offsetX', offset.left);
+            this.viewModel.set('offsetY', offset.top);
             this.trigger('move');
         }
     }
     
     export class NodesView extends Backbone.View {
         raphael: any;
-        constructor(nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
+        constructor(private root:string, nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
             super();
             var that = this;
             this.$el = $('<div class="container"/>').css({
@@ -238,7 +251,7 @@ module views {
             
         }
         addNodeView(node) {
-            var view = new NodeView(node, this.tmpConn);
+            var view = new NodeView(this.root, node, this.tmpConn);
             this.listenTo(view, 'remove', function(){
                 delete _views[view.id];
             });
