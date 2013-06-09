@@ -66,18 +66,16 @@ module models {
         id: string;
         private targets: any;
         value: any;
-        
+        params: Param[];
         private static createParamId() {
             return 'node' + _id++;
         }
-        params: Param[];
         constructor(urlRoot:string, private audioNode, public description, public isSource:bool, public isTarget:bool) {
             super();
             this.id = Node.createParamId();
             this.url = urlRoot + '/' + this.id;
             this.targets = {};
             this.value = audioNode;
-            this.save();
         }
         connect(to: ConnectionTarget) {
             try{
@@ -107,6 +105,8 @@ module models {
         constructor(root:string, node: any) {
             super(root, node, 'Gain', true, true);
             this.gain = new TargetParam(root, 'Gain', 0, 1, 0.01, node.gain);
+            this.set('nodeType', 'gain');
+            this.set('gain', this.gain);
             this.params = [this.gain];
         }
     }
@@ -115,6 +115,8 @@ module models {
         constructor(root:string, node: any) {
             super(root, node, 'Delay', true, true);
             this.delayTime = new TargetParam(root, 'DelayTime', 0.0, 0.5, 0.01, node.delayTime);
+            this.set('nodeType', 'delay');
+            this.set('delayTime', this.delayTime);
             this.params = [this.delayTime];
         }
     }
@@ -128,6 +130,9 @@ module models {
                 node.type = parseInt(value);
             });
             this.freq = new TargetParam(root, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
+            this.set('nodeType', 'oscillator');
+            this.set('type', this.type);
+            this.set('freq', this.freq);
             this.params = [this.type, this.freq];
         }
     }
@@ -138,6 +143,7 @@ module models {
             this.mode = new Param(root, 'Mode', 0, 1, 1, node.mode, (value) => {
                 node.mode = value;
             });
+            this.set('nodeType', 'analyser');
             this.params = [this.mode];
         }
     }
@@ -156,6 +162,11 @@ module models {
             this.decay = new Param(root, 'Decay', 0, 200, 0.1, d, (_d) => { d = _d; });
             this.sustain = new Param(root, 'Sustain', 0, 1, 0.01, s, (_s) => { s = _s; });
             this.release = new Param(root, 'Release', 0, 200, 0.1, r, (_r) => { r = _r; });
+            this.set('nodeType', 'adsr');
+            this.set('attack', this.attack);
+            this.set('decay', this.decay);
+            this.set('sustain', this.sustain);
+            this.set('release', this.release);
             this.params = [this.attack, this.decay, this.sustain, this.release];
             this.set('keyState', 0);
             this.on('change:keyState', (_, keyState) => {
@@ -184,7 +195,7 @@ module models {
     export class Connection extends Backbone.Model {
         id: string;
         private static createConnectionId() {
-            return 'collection' + _id++;
+            return 'connection' + _id++;
         }
         constructor(urlRoot:string, public source: Node, public target: ConnectionTarget) {
             super();
@@ -193,6 +204,8 @@ module models {
             this.listenTo(source, 'destroy', this.remove);
             this.listenTo(target, 'destroy', this.remove);
             source.connect(target);
+            this.set('sourceId', source.id);
+            this.set('targetId', target.id);
             this.save();
         }/*
         private destroyBySource(){
@@ -218,19 +231,23 @@ module models {
             super();
             this.url = root + '/nodes';
             this.load();
+            this.on('add', (node) => {
+                node.save();
+            });
         }
         load(){
             this.fetch();
         }
         parse(res) {
-            if (res.error) {
-                alert(res.error.message);
-            }
-            console.log(res.data);
-            res.data.forEach((conn) => {
-               console.log(conn); 
-            });
-            return res.data;
+            /*
+            return Object.keys(res).map((key) => {
+                var node = res[key];
+                //if(node.nodeType == 'gain'){
+                //}
+                console.log(node);
+                return null;
+            });*/
+            return [];
         }
         gainNode(context: AudioContext, val){
             var audioNode = context.createGain();
@@ -245,6 +262,7 @@ module models {
             node.type.set('value', type);
             node.freq.set('value', freq);
             this.add(node);
+            
             audioNode.start(0);
             return node;
         }
@@ -308,23 +326,28 @@ module models {
     }
     
     export class Connections extends Backbone.Collection {
-        constructor(root:string, tmp: TemporaryConnection){
+        constructor(root:string, private nodes:Nodes, tmp: TemporaryConnection){
             super();
             this.listenTo(tmp, 'resolve', (st) => {
                 this.createConnection(st.source, st.target);
             });
-            this.url = root + '/collections';
-            this.load();
+            this.url = root + '/connections';
+            //this.load();
         }
         load(){
             this.fetch();
         }
         parse(res) {
-            if (res.error) {
-                alert(res.error.message);
-            }
-            console.log(res.data);
-            return res.data;
+            return Object.keys(res).forEach((key) => {
+                var conn = res[key];
+                var nodes:any = this.nodes;//TODO
+                var source = nodes.where({id: conn.sourceId})[0];
+                var target = nodes.where({id: conn.targetId})[0];
+                console.log(source);
+                console.log(target);
+                this.createConnection(source, target);
+            });
+            return [];
         }     
         createConnection(source: Node, target: Node) {
             var connection = new Connection(this.url, source, target);

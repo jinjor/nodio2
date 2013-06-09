@@ -82,7 +82,6 @@ var models;
             this.targets = {
             };
             this.value = audioNode;
-            this.save();
         }
         Node.createParamId = function createParamId() {
             return 'node' + _id++;
@@ -115,6 +114,8 @@ var models;
         function GainNode(root, node) {
                 _super.call(this, root, node, 'Gain', true, true);
             this.gain = new TargetParam(root, 'Gain', 0, 1, 0.01, node.gain);
+            this.set('nodeType', 'gain');
+            this.set('gain', this.gain);
             this.params = [
                 this.gain
             ];
@@ -127,6 +128,8 @@ var models;
         function DelayNode(root, node) {
                 _super.call(this, root, node, 'Delay', true, true);
             this.delayTime = new TargetParam(root, 'DelayTime', 0.0, 0.5, 0.01, node.delayTime);
+            this.set('nodeType', 'delay');
+            this.set('delayTime', this.delayTime);
             this.params = [
                 this.delayTime
             ];
@@ -143,6 +146,9 @@ var models;
                 node.type = parseInt(value);
             });
             this.freq = new TargetParam(root, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
+            this.set('nodeType', 'oscillator');
+            this.set('type', this.type);
+            this.set('freq', this.freq);
             this.params = [
                 this.type, 
                 this.freq
@@ -159,6 +165,7 @@ var models;
             this.mode = new Param(root, 'Mode', 0, 1, 1, node.mode, function (value) {
                 node.mode = value;
             });
+            this.set('nodeType', 'analyser');
             this.params = [
                 this.mode
             ];
@@ -186,6 +193,11 @@ var models;
             this.release = new Param(root, 'Release', 0, 200, 0.1, r, function (_r) {
                 r = _r;
             });
+            this.set('nodeType', 'adsr');
+            this.set('attack', this.attack);
+            this.set('decay', this.decay);
+            this.set('sustain', this.sustain);
+            this.set('release', this.release);
             this.params = [
                 this.attack, 
                 this.decay, 
@@ -231,10 +243,12 @@ var models;
             this.listenTo(source, 'destroy', this.remove);
             this.listenTo(target, 'destroy', this.remove);
             source.connect(target);
+            this.set('sourceId', source.id);
+            this.set('targetId', target.id);
             this.save();
         }
         Connection.createConnectionId = function createConnectionId() {
-            return 'collection' + _id++;
+            return 'connection' + _id++;
         };
         Connection.prototype.remove = function () {
             this.stopListening(this.target);
@@ -252,19 +266,15 @@ var models;
             this.root = root;
             this.url = root + '/nodes';
             this.load();
+            this.on('add', function (node) {
+                node.save();
+            });
         }
         Nodes.prototype.load = function () {
             this.fetch();
         };
         Nodes.prototype.parse = function (res) {
-            if(res.error) {
-                alert(res.error.message);
-            }
-            console.log(res.data);
-            res.data.forEach(function (conn) {
-                console.log(conn);
-            });
-            return res.data;
+            return [];
         };
         Nodes.prototype.gainNode = function (context, val) {
             var audioNode = context.createGain();
@@ -315,24 +325,34 @@ var models;
     models.Nodes = Nodes;    
     var Connections = (function (_super) {
         __extends(Connections, _super);
-        function Connections(root, tmp) {
+        function Connections(root, nodes, tmp) {
             var _this = this;
                 _super.call(this);
+            this.nodes = nodes;
             this.listenTo(tmp, 'resolve', function (st) {
                 _this.createConnection(st.source, st.target);
             });
-            this.url = root + '/collections';
-            this.load();
+            this.url = root + '/connections';
         }
         Connections.prototype.load = function () {
             this.fetch();
         };
         Connections.prototype.parse = function (res) {
-            if(res.error) {
-                alert(res.error.message);
-            }
-            console.log(res.data);
-            return res.data;
+            var _this = this;
+            return Object.keys(res).forEach(function (key) {
+                var conn = res[key];
+                var nodes = _this.nodes;
+                var source = nodes.where({
+                    id: conn.sourceId
+                })[0];
+                var target = nodes.where({
+                    id: conn.targetId
+                })[0];
+                console.log(source);
+                console.log(target);
+                _this.createConnection(source, target);
+            });
+            return [];
         };
         Connections.prototype.createConnection = function (source, target) {
             var connection = new Connection(this.url, source, target);
@@ -682,12 +702,12 @@ var views;
 })(views || (views = {}));
 var nodio;
 (function (nodio) {
+    var root = 'tmp';
+    var nodes = new models.Nodes(root);
     var context = new webkitAudioContext();
     var tmpConnection = new models.TemporaryConnection();
+    var connections = new models.Connections(root, nodes, tmpConnection);
     $(function () {
-        var root = 'tmp';
-        var connections = new models.Connections(root, tmpConnection);
-        var nodes = new models.Nodes(root);
         console.log(views);
         var nodesView = new views.NodesView(root, nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
