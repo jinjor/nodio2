@@ -47,12 +47,10 @@ module models {
         constructor(root:string, public description, public min:number, public max:number, public step:number, value: any, onChange:any) {
             super();
             this.id = Param.createParamId();
-            this.url = root + '/params/' + this.id;
             this.on('change:value', (_, value) => {
                 onChange(value);
             });
             this.set('value', value);
-            this.save();
         }
     }
     export class TargetParam extends Param implements ConnectionTarget {

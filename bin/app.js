@@ -47,12 +47,10 @@ var models;
             this.max = max;
             this.step = step;
             this.id = Param.createParamId();
-            this.url = root + '/params/' + this.id;
             this.on('change:value', function (_, value) {
                 onChange(value);
             });
             this.set('value', value);
-            this.save();
         }
         Param.createParamId = function createParamId() {
             return 'param' + _id++;
