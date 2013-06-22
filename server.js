@@ -28,13 +28,47 @@ app.configure(function () {
 var db = {
     synth: {
         tmp: {
-            connections:{},
-            nodes:{},
+            connections:[
+            { sourceId: 'node1', targetId: 'node2'},
+            { sourceId: 'node2', targetId: 'node3'},
+            { sourceId: 'node3', targetId: 'node4'},
+            { sourceId: 'node5', targetId: 'node4'},
+            { sourceId: 'node4', targetId: 'node5'},
+            { sourceId: 'node6', targetId: 'node7'},
+            { sourceId: 'node3', targetId: 'node6'},
+            { sourceId: 'node4', targetId: 'node6'}
+            ],
+            nodes:[{
+                id: 'node1',
+                nodeType: 'oscillatorNode',
+                type: 0,
+                freq: 440
+            },{
+                id: 'node2',
+                nodeType: 'adsrNode'
+            },{
+                id: 'node3',
+                nodeType: 'gainNode',
+                gain: 0.3
+            },{
+                id: 'node4',
+                nodeType: 'gainNode',
+                gain: 0.3
+            },{
+                id: 'node5',
+                nodeType: 'delayNode',
+                value: 100
+            },{
+                id: 'node6',
+                nodeType: 'analyserNode'
+            },{
+                id: 'node7',
+                nodeType: 'destinationNode'
+            }],
             nodeviews:{}
         }
     }
 };
-
 
 
 app.get('/', function (req, res) {
@@ -54,6 +88,7 @@ app.get('/:synth/nodes', function (req, res) {
     var synth = db.synth[req.params.synth];
     var nodes = synth ? (synth.nodes || []) : [];//TODO このへんてきとう
     res.contentType('application/json');
+    console.log(nodes);
     res.send(nodes);
 });
 app.get('/:synth/nodeviews', function (req, res) {
@@ -65,26 +100,32 @@ app.get('/:synth/nodeviews', function (req, res) {
 app.put('/:synth/connections/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].connections[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 app.post('/:synth/connections/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].connections[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 app.put('/:synth/nodes/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].nodes[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 app.post('/:synth/nodes/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].nodes[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 app.put('/:synth/nodeviews/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].nodeviews[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 app.post('/:synth/nodeviews/:id', function (req, res) {
     console.log(req.body);
     db.synth[req.params.synth].nodeviews[req.params.id] = req.body;//TODO このへんてきとう
+    res.send();
 });
 
 

@@ -10,9 +10,11 @@ module nodio {
     
     var root = 'tmp';
     var nodes = new models.Nodes(root);
+    
     var context:AudioContext = new webkitAudioContext();
     var tmpConnection = new models.TemporaryConnection();
     var connections = new models.Connections(root, nodes, tmpConnection);
+    
     
     $(() => {
         console.log(views);
@@ -41,6 +43,8 @@ module nodio {
         );
         */
         
+        nodes.load(context);
+        /*
         var osc1 = nodes.oscillatorNode(context, 0, 440);
         var adsr = nodes.adsrNode(context);
         var gain1 = nodes.gainNode(context, 0.3);
@@ -59,6 +63,7 @@ module nodio {
         var conn6 = connections.createConnection(gain1, analyser1);
         var conn7 = connections.createConnection(gain2, analyser1);
         //conn1.disconnect();
+        */
     });
 
 }

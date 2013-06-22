@@ -199,6 +199,8 @@ module models {
         }
         constructor(urlRoot:string, public source: Node, public target: ConnectionTarget) {
             super();
+            console.log(source);
+            console.log(target);
             this.id = Connection.createConnectionId();
             this.url = urlRoot + '/' + this.id;
             this.listenTo(source, 'destroy', this.remove);
@@ -230,37 +232,53 @@ module models {
         constructor(private root:string){
             super();
             this.url = root + '/nodes';
-            this.load();
             this.on('add', (node) => {
                 node.save();
             });
         }
-        load(){
-            this.fetch();
+        load(context: AudioContext){
+            var self:any = this;
+            
+            self.fetch({
+                //data: {},
+                //dataType : 'json',
+                success : (collection, data) => {
+                    data.forEach((d:any) => {
+                        if(d.nodeType == 'gainNode'){
+                            this.gainNode(context, d.gain, d.id);
+                        }else if(d.nodeType == 'oscillatorNode'){
+                            this.oscillatorNode(context, d.type, d.freq, d.id);
+                        }else if(d.nodeType == 'analyserNode'){
+                            this.analyserNode(context, d.id);
+                        }else if(d.nodeType == 'delayNode'){
+                            this.delayNode(context, d.value, d.id);
+                        }else if(d.nodeType == 'adsrNode'){
+                            this.adsrNode(context, d.id);
+                        }else if(d.nodeType == 'destinationNode'){
+                            this.destinationNode(context, d.id);
+                        }
+                    });
+                    this.trigger('loaded');
+                }
+            });
         }
         parse(res) {
-            /*
-            return Object.keys(res).map((key) => {
-                var node = res[key];
-                //if(node.nodeType == 'gain'){
-                //}
-                console.log(node);
-                return null;
-            });*/
             return [];
         }
-        gainNode(context: AudioContext, val){
+        gainNode(context: AudioContext, val, id?){
             var audioNode = context.createGain();
             var node = new GainNode(this.url, audioNode);
             node.gain.set('value', val);
+            if(id) node.id = id;
             this.add(node);
             return node;
         }
-        oscillatorNode(context: AudioContext, type, freq){
+        oscillatorNode(context: AudioContext, type, freq, id?){
             var audioNode = context.createOscillator();
             var node = new OscillatorNode(this.url, audioNode);
             node.type.set('value', type);
             node.freq.set('value', freq);
+            if(id) node.id = id;
             this.add(node);
             
             audioNode.start(0);
@@ -295,31 +313,36 @@ module models {
             this.add(_node);
             return _node
         }*/
-        analyserNode(context: AudioContext){
+        analyserNode(context: AudioContext, id?){
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
             var node = new AnalyserNode(this.url, audioNode);
+            if(id) node.id = id;
             this.add(node);
+            
             return node
         }
-        delayNode(context: AudioContext, val){
+        delayNode(context: AudioContext, val, id?){
             var audioNode = context.createDelay();
             var node = new DelayNode(this.url, audioNode);
             node.delayTime.set('value', val);
+            if(id) node.id = id;
             this.add(node);
             return node
         }
-        adsrNode(context){
+        adsrNode(context: AudioContext, id?){
             var bufsize = 1024;
             var gainNode = context.createGain();
             gainNode.gain.value = 0;
             var node = new ADSRNode(this.url, context, gainNode);
+            if(id) node.id = id;
             this.add(node);
             return node
         }
-        destinationNode(context: AudioContext){
+        destinationNode(context: AudioContext, id?){
             var audioNode = context.destination
             var node = new DestinationNode(this.url, audioNode);
+            if(id) node.id = id;
             this.add(node);
             return node
         }
@@ -332,25 +355,34 @@ module models {
                 this.createConnection(st.source, st.target);
             });
             this.url = root + '/connections';
+            this.listenTo(nodes, 'loaded', () => this.load());
+            
+            
             //this.load();
         }
         load(){
-            this.fetch();
+            var self:any = this;
+            self.fetch({
+                //data: {},
+                //dataType : 'json',
+                success : (collection, data) => {
+                    data.forEach((d:any) => {
+                        var nodes:any = this.nodes;//TODO
+                        var source = nodes.get(d.sourceId);
+                        var target = nodes.get(d.targetId);
+                        this.createConnection(source, target);
+                    });
+                    this.trigger('loaded');
+                }
+            });
+            
         }
         parse(res) {
-            return Object.keys(res).forEach((key) => {
-                var conn = res[key];
-                var nodes:any = this.nodes;//TODO
-                var source = nodes.where({id: conn.sourceId})[0];
-                var target = nodes.where({id: conn.targetId})[0];
-                console.log(source);
-                console.log(target);
-                this.createConnection(source, target);
-            });
             return [];
-        }     
+        }  
         createConnection(source: Node, target: Node) {
             var connection = new Connection(this.url, source, target);
+                        console.log(connection);
             this.add(connection);
             return connection;
         }

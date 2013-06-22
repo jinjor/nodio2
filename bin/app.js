@@ -238,6 +238,8 @@ var models;
                 _super.call(this);
             this.source = source;
             this.target = target;
+            console.log(source);
+            console.log(target);
             this.id = Connection.createConnectionId();
             this.url = urlRoot + '/' + this.id;
             this.listenTo(source, 'destroy', this.remove);
@@ -265,58 +267,96 @@ var models;
                 _super.call(this);
             this.root = root;
             this.url = root + '/nodes';
-            this.load();
             this.on('add', function (node) {
                 node.save();
             });
         }
-        Nodes.prototype.load = function () {
-            this.fetch();
+        Nodes.prototype.load = function (context) {
+            var _this = this;
+            var self = this;
+            self.fetch({
+                success: function (collection, data) {
+                    data.forEach(function (d) {
+                        if(d.nodeType == 'gainNode') {
+                            _this.gainNode(context, d.gain, d.id);
+                        } else if(d.nodeType == 'oscillatorNode') {
+                            _this.oscillatorNode(context, d.type, d.freq, d.id);
+                        } else if(d.nodeType == 'analyserNode') {
+                            _this.analyserNode(context, d.id);
+                        } else if(d.nodeType == 'delayNode') {
+                            _this.delayNode(context, d.value, d.id);
+                        } else if(d.nodeType == 'adsrNode') {
+                            _this.adsrNode(context, d.id);
+                        } else if(d.nodeType == 'destinationNode') {
+                            _this.destinationNode(context, d.id);
+                        }
+                    });
+                    _this.trigger('loaded');
+                }
+            });
         };
         Nodes.prototype.parse = function (res) {
             return [];
         };
-        Nodes.prototype.gainNode = function (context, val) {
+        Nodes.prototype.gainNode = function (context, val, id) {
             var audioNode = context.createGain();
             var node = new GainNode(this.url, audioNode);
             node.gain.set('value', val);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             return node;
         };
-        Nodes.prototype.oscillatorNode = function (context, type, freq) {
+        Nodes.prototype.oscillatorNode = function (context, type, freq, id) {
             var audioNode = context.createOscillator();
             var node = new OscillatorNode(this.url, audioNode);
             node.type.set('value', type);
             node.freq.set('value', freq);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             audioNode.start(0);
             return node;
         };
-        Nodes.prototype.analyserNode = function (context) {
+        Nodes.prototype.analyserNode = function (context, id) {
             var audioNode = context.createAnalyser();
             audioNode.fftSize = 1024;
             var node = new AnalyserNode(this.url, audioNode);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             return node;
         };
-        Nodes.prototype.delayNode = function (context, val) {
+        Nodes.prototype.delayNode = function (context, val, id) {
             var audioNode = context.createDelay();
             var node = new DelayNode(this.url, audioNode);
             node.delayTime.set('value', val);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             return node;
         };
-        Nodes.prototype.adsrNode = function (context) {
+        Nodes.prototype.adsrNode = function (context, id) {
             var bufsize = 1024;
             var gainNode = context.createGain();
             gainNode.gain.value = 0;
             var node = new ADSRNode(this.url, context, gainNode);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             return node;
         };
-        Nodes.prototype.destinationNode = function (context) {
+        Nodes.prototype.destinationNode = function (context, id) {
             var audioNode = context.destination;
             var node = new DestinationNode(this.url, audioNode);
+            if(id) {
+                node.id = id;
+            }
             this.add(node);
             return node;
         };
@@ -333,29 +373,31 @@ var models;
                 _this.createConnection(st.source, st.target);
             });
             this.url = root + '/connections';
+            this.listenTo(nodes, 'loaded', function () {
+                return _this.load();
+            });
         }
         Connections.prototype.load = function () {
-            this.fetch();
+            var _this = this;
+            var self = this;
+            self.fetch({
+                success: function (collection, data) {
+                    data.forEach(function (d) {
+                        var nodes = _this.nodes;
+                        var source = nodes.get(d.sourceId);
+                        var target = nodes.get(d.targetId);
+                        _this.createConnection(source, target);
+                    });
+                    _this.trigger('loaded');
+                }
+            });
         };
         Connections.prototype.parse = function (res) {
-            var _this = this;
-            return Object.keys(res).forEach(function (key) {
-                var conn = res[key];
-                var nodes = _this.nodes;
-                var source = nodes.where({
-                    id: conn.sourceId
-                })[0];
-                var target = nodes.where({
-                    id: conn.targetId
-                })[0];
-                console.log(source);
-                console.log(target);
-                _this.createConnection(source, target);
-            });
             return [];
         };
         Connections.prototype.createConnection = function (source, target) {
             var connection = new Connection(this.url, source, target);
+            console.log(connection);
             this.add(connection);
             return connection;
         };
@@ -711,21 +753,7 @@ var nodio;
         console.log(views);
         var nodesView = new views.NodesView(root, nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
-        var osc1 = nodes.oscillatorNode(context, 0, 440);
-        var adsr = nodes.adsrNode(context);
-        var gain1 = nodes.gainNode(context, 0.3);
-        var gain2 = nodes.gainNode(context, 0.3);
-        var delay1 = nodes.delayNode(context, 100);
-        var analyser1 = nodes.analyserNode(context);
-        var dest = nodes.destinationNode(context);
-        var conn0 = connections.createConnection(osc1, adsr);
-        var conn1 = connections.createConnection(adsr, gain1);
-        var conn2 = connections.createConnection(gain1, gain2);
-        var conn3 = connections.createConnection(delay1, gain2);
-        var conn4 = connections.createConnection(gain2, delay1);
-        var conn5 = connections.createConnection(analyser1, dest);
-        var conn6 = connections.createConnection(gain1, analyser1);
-        var conn7 = connections.createConnection(gain2, analyser1);
+        nodes.load(context);
     });
 })(nodio || (nodio = {}));
 //@ sourceMappingURL=app.js.map
