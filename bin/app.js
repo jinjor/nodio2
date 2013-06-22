@@ -142,7 +142,6 @@ var models;
         function OscillatorNode(root, node) {
                 _super.call(this, root, node, 'Oscillator', true, false);
             this.type = new Param(root, 'Type', 0, 3, 1, 0, function (value) {
-                console.log(value);
                 node.type = parseInt(value);
             });
             this.freq = new TargetParam(root, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
@@ -238,8 +237,6 @@ var models;
                 _super.call(this);
             this.source = source;
             this.target = target;
-            console.log(source);
-            console.log(target);
             this.id = Connection.createConnectionId();
             this.url = urlRoot + '/' + this.id;
             this.listenTo(source, 'destroy', this.remove);
@@ -397,7 +394,6 @@ var models;
         };
         Connections.prototype.createConnection = function (source, target) {
             var connection = new Connection(this.url, source, target);
-            console.log(connection);
             this.add(connection);
             return connection;
         };
@@ -546,8 +542,20 @@ var views;
         function NodeViewModel(root, nodeId) {
                 _super.call(this);
             this.url = root + '/nodeviews/' + nodeId;
-            this.save();
         }
+        NodeViewModel.prototype.load = function () {
+            var _this = this;
+            var self = this;
+            self.fetch({
+                success: function (model, data) {
+                    _this.set('offsetY', data.top);
+                    _this.set('offsetX', data.left);
+                }
+            });
+        };
+        NodeViewModel.prototype.parse = function (res) {
+            return [];
+        };
         return NodeViewModel;
     })(Backbone.Model);
     views.NodeViewModel = NodeViewModel;    
@@ -560,6 +568,19 @@ var views;
             var _this = this;
                 _super.call(this);
             this.viewModel = new NodeViewModel(root, node.id);
+            this.listenTo(this.viewModel, 'change:offsetX', function (_, x) {
+                _this.$el.css({
+                    left: x + 'px'
+                });
+                _this.resetPosition();
+            });
+            this.listenTo(this.viewModel, 'change:offsetY', function (_, y) {
+                _this.$el.css({
+                    top: y + 'px'
+                });
+                _this.resetPosition();
+            });
+            this.viewModel.load();
             this.listenTo(node, 'destroy', function () {
                 _this.viewModel.destroy();
                 _this.remove();
@@ -750,7 +771,6 @@ var nodio;
     var tmpConnection = new models.TemporaryConnection();
     var connections = new models.Connections(root, nodes, tmpConnection);
     $(function () {
-        console.log(views);
         var nodesView = new views.NodesView(root, nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
         nodes.load(context);

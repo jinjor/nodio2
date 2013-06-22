@@ -97,14 +97,25 @@ module views {
         constructor(root:string, nodeId:string) {
             super();
             this.url = root + '/nodeviews/' + nodeId;
-            this.save();
+        }
+        load(){
+            var self:any = this;
+            self.fetch({
+                success : (model, data) => {
+                    this.set('offsetY', data.top);
+                    this.set('offsetX', data.left);
+                }
+            });
+        }
+        parse(res) {
+            return [];
         }
     }
     
     var globalKeyState = false;
     var _views = {};
     export class NodeView extends Backbone.View {
-        private viewModel: NodeViewModel;
+        public viewModel: NodeViewModel;
         paramViews: any;
         inX: number;
         inY: number;
@@ -114,6 +125,19 @@ module views {
         constructor(root:string, node: models.Node, tmpConn: models.TemporaryConnection) {
             super();
             this.viewModel = new NodeViewModel(root, node.id);
+            
+            this.listenTo(this.viewModel, 'change:offsetX', (_, x)=> {
+                this.$el.css({left:x + 'px'});
+                this.resetPosition();
+            });
+            this.listenTo(this.viewModel, 'change:offsetY', (_, y)=> {
+                this.$el.css({top:y + 'px'})
+                this.resetPosition();
+            });
+            
+            
+            this.viewModel.load();
+            
             this.listenTo(node, 'destroy', () => {
                 this.viewModel.destroy();
                 this.remove();
@@ -235,7 +259,7 @@ module views {
     
     export class NodesView extends Backbone.View {
         raphael: any;
-        constructor(private root:string, nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
+        constructor(private root:string, nodes: models.Nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
             super();
             var that = this;
             this.$el = $('<div class="container"/>').css({

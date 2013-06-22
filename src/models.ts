@@ -126,7 +126,6 @@ module models {
         constructor(root:string, node: any) {
             super(root, node, 'Oscillator', true, false);
             this.type = new Param(root, 'Type', 0, 3, 1, 0, (value) => {
-                console.log(value);
                 node.type = parseInt(value);
             });
             this.freq = new TargetParam(root, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
@@ -199,8 +198,6 @@ module models {
         }
         constructor(urlRoot:string, public source: Node, public target: ConnectionTarget) {
             super();
-            console.log(source);
-            console.log(target);
             this.id = Connection.createConnectionId();
             this.url = urlRoot + '/' + this.id;
             this.listenTo(source, 'destroy', this.remove);
@@ -382,7 +379,6 @@ module models {
         }  
         createConnection(source: Node, target: Node) {
             var connection = new Connection(this.url, source, target);
-                        console.log(connection);
             this.add(connection);
             return connection;
         }

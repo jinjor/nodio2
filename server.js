@@ -65,7 +65,15 @@ var db = {
                 id: 'node7',
                 nodeType: 'destinationNode'
             }],
-            nodeviews:{}
+            nodeviews:{
+                'node1' : {top: 20, left:200},
+                'node2' : {top: 100, left:200},
+                'node3' : {top: 260, left:200},
+                'node4' : {top: 340, left:340},
+                'node5' : {top: 420, left:480},
+                'node6' : {top: 400, left:100},
+                'node7' : {top: 570, left:160},
+            }
         }
     }
 };
@@ -91,11 +99,12 @@ app.get('/:synth/nodes', function (req, res) {
     console.log(nodes);
     res.send(nodes);
 });
-app.get('/:synth/nodeviews', function (req, res) {
+app.get('/:synth/nodeviews/:id', function (req, res) {
     var synth = db.synth[req.params.synth];
-    var nodes = synth ? (synth.nodeviews || []) : [];//TODO このへんてきとう
+    var nodeviews = synth ? (synth.nodeviews || {}) : {};//TODO このへんてきとう
+    var nodeview = nodeviews[req.params.id];
     res.contentType('application/json');
-    res.send(nodes);
+    res.send(nodeview);
 });
 app.put('/:synth/connections/:id', function (req, res) {
     console.log(req.body);
