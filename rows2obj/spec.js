@@ -32,7 +32,7 @@ describe("rows2obj", function() {
         expect(result[1][1][1].childName).toEqual('bar');
     });
 
-    it("does not matter if all fields are filled", function() {
+    it("does not matter if all fields are filled or not", function() {
         var obj0 = {id: 0, name: '',     childId: 0, childName: 'foo' };
         var obj1 = {id: 0, name: '',                 childName: 'bar' };
         var obj2 = {id: 1,               childId: 0, childName: ''    };
