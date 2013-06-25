@@ -14,22 +14,36 @@ describe("rows2obj", function() {
         expect(result.length).toEqual(2);
         expect(result[0][0].id).toEqual(0);
         expect(result[0][0].name).toEqual('hoge');
+        expect(result[0][0].childId).toBeFalsy();
+        expect(result[0][0].childName).toBeFalsy();
         expect(result[0][1].length).toEqual(3);
         expect(result[0][1][0].childId).toEqual(0);
         expect(result[0][1][0].childName).toEqual('foo');
+        expect(result[0][1][0].id).toBeFalsy();
+        expect(result[0][1][0].name).toBeFalsy();
         expect(result[0][1][1].childId).toEqual(1);
         expect(result[0][1][1].childName).toEqual('bar');
+        expect(result[0][1][1].id).toBeFalsy();
+        expect(result[0][1][1].name).toBeFalsy();
         expect(result[0][1][2].childId).toEqual(2);
         expect(result[0][1][2].childName).toEqual('baz');
+        expect(result[0][1][2].id).toBeFalsy();
+        expect(result[0][1][2].name).toBeFalsy();
         
         expect(result.length).toEqual(2);
         expect(result[1][0].id).toEqual(1);
         expect(result[1][0].name).toEqual('fuga');
+        expect(result[1][0].childId).toBeFalsy();
+        expect(result[1][0].childName).toBeFalsy();
         expect(result[1][1].length).toEqual(2);
         expect(result[1][1][0].childId).toEqual(0);
         expect(result[1][1][0].childName).toEqual('foo');
+        expect(result[1][1][0].id).toBeFalsy();
+        expect(result[1][1][0].name).toBeFalsy();
         expect(result[1][1][1].childId).toEqual(1);
         expect(result[1][1][1].childName).toEqual('bar');
+        expect(result[1][1][1].id).toBeFalsy();
+        expect(result[1][1][1].name).toBeFalsy();
     });
 
     it("does not matter if all fields are filled or not", function() {
