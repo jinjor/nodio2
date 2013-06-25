@@ -1,6 +1,6 @@
 var rows2obj = require('./rows2obj.js');
 
-describe("sql2obj", function() {
+describe("rows2obj", function() {
     it("should group by main objects", function() {
         var obj0 = {id: 0, name: 'hoge', childId: 0, childName: 'foo', };
         var obj1 = {id: 0, name: 'hoge', childId: 1, childName: 'bar', };
