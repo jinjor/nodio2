@@ -28,11 +28,11 @@ pool.getConnection(function(err, connection) {
         '   ,n.prc_date as prcDate'+
         '   ,n.max_in as maxIn'+
         '   ,n.max_out as maxOut'+
-        '   ,cnp.id as childParamId'+
-        '   ,cnp.param_name as ParamName'+
-        '   ,cnp.value'+
-        '   ,cnp.public_name as publicName'+
-        '   ,cnp.public_max_in as publicMaxIn'+
+        '   ,cnp.id as params$id'+
+        '   ,cnp.param_name as params$ParamName'+
+        '   ,cnp.value as params$value'+
+        '   ,cnp.public_name as params$publicName'+
+        '   ,cnp.public_max_in as params$publicMaxIn'+
         ' FROM'+
         '   node_relations nr'+
         '   ,child_node_params cnp'+
