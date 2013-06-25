@@ -4,6 +4,120 @@ var path = require("path")
 var sys = require("sys");
 var express = require("express");
 var url = require("url");
+var mysql = require("mysql");
+var async = require("async");
+var rows2obj = require("./rows2obj/rows2obj.js");
+var _ = require("underscore");
+
+var pool  = mysql.createPool({
+  host     : 'localhost',
+  database : 'nodio',
+  user     : 'root',
+  //password : 'root'
+});
+
+pool.getConnection(function(err, connection) {
+    if(err) throw err;
+    
+    var sql =
+        ' SELECT'+
+        '   n.id'+
+        '   ,n.name'+
+        '   ,n.author'+
+        '   ,n.create_date as createDate'+
+        '   ,n.prc_date as prcDate'+
+        '   ,n.max_in as maxIn'+
+        '   ,n.max_out as maxOut'+
+        '   ,cnp.id as childParamId'+
+        '   ,cnp.param_name as ParamName'+
+        '   ,cnp.value'+
+        '   ,cnp.public_name as publicName'+
+        '   ,cnp.public_max_in as publicMaxIn'+
+        ' FROM'+
+        '   node_relations nr'+
+        '   ,child_node_params cnp'+
+        '   ,nodes n'+
+        ' WHERE'+
+        '   nr.parent_id = ?'+
+        '   and nr.child_id = n.id'+
+        '   and cnp.node_relation_id = nr.id'+
+        ' ORDER BY'+
+        '   n.id';
+    
+    connection.query(sql, [1000], function(err, children, fields) {
+        if (err) throw err;   
+        
+        children = _.groupBy(children, function(child){
+            return {
+                id: child.id,
+                name: child.name,
+                createDate: child.createDate,
+                prcDate: child.prcDate,
+                maxIn: child.maxIn,
+                maxOut: child.maxOut
+            };
+        });
+                       
+        console.log(children);
+    });
+    
+    var sql =
+        'SELECT'+
+        '   *'+
+        ' FROM'+
+        '   node_relations nr'+
+        ' WHERE'+
+        '   parent_id = ?';
+    
+    connection.query(sql, [1000], function(err, nodeRelations, fields) {
+        if (err) throw err;
+        
+        //console.log(nodeRelations);
+        
+        var nextSql =
+            'SELECT'+
+            '   *'+
+            ' FROM'+
+            '   child_node_params cnp'+
+            ' WHERE'+
+            '   node_relation_id = ?';
+        var tasks = nodeRelations.map(function(rel){
+            return function(callback){
+                return connection.query(nextSql, [rel.id], function(err, records, fields){
+                    //console.log(records);
+                    rel.params = records;
+                    callback();
+                });
+            };
+        });
+        
+        var sqlNodeView =
+            'SELECT'+
+            '   *'+
+            ' FROM'+
+            '   node_views nv'+
+            ' WHERE'+
+            '   node_rel_id = ?';
+        var tasks2 = nodeRelations.map(function(rel){
+            return function(callback){
+                return connection.query(sqlNodeView, [rel.id], function(err, records, fields){
+                    rel.view = records[0];
+                    callback();
+                });
+            };
+        });
+        
+        async.parallel(tasks.concat(tasks2), function (err) {
+            if (err) { throw err; }
+
+            console.log(nodeRelations);
+        });
+        
+        
+    });
+});
+
+
 var debugMode = process.env.NODE_APP_MODE === 'debug';
 var host = process.env.HOST || 'localhost';
 var port = process.env.PORT || 3000;
@@ -98,6 +212,8 @@ app.get('/:synth/nodes', function (req, res) {
     res.contentType('application/json');
     console.log(nodes);
     res.send(nodes);
+    
+    
 });
 app.get('/:synth/nodeviews/:id', function (req, res) {
     var synth = db.synth[req.params.synth];
