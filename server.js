@@ -46,75 +46,9 @@ pool.getConnection(function(err, connection) {
     
     connection.query(sql, [1000], function(err, children, fields) {
         if (err) throw err;   
-        
-        children = _.groupBy(children, function(child){
-            return {
-                id: child.id,
-                name: child.name,
-                createDate: child.createDate,
-                prcDate: child.prcDate,
-                maxIn: child.maxIn,
-                maxOut: child.maxOut
-            };
-        });
-                       
-        console.log(children);
+        console.log(rows2obj.group(children));
     });
-    
-    var sql =
-        'SELECT'+
-        '   *'+
-        ' FROM'+
-        '   node_relations nr'+
-        ' WHERE'+
-        '   parent_id = ?';
-    
-    connection.query(sql, [1000], function(err, nodeRelations, fields) {
-        if (err) throw err;
-        
-        //console.log(nodeRelations);
-        
-        var nextSql =
-            'SELECT'+
-            '   *'+
-            ' FROM'+
-            '   child_node_params cnp'+
-            ' WHERE'+
-            '   node_relation_id = ?';
-        var tasks = nodeRelations.map(function(rel){
-            return function(callback){
-                return connection.query(nextSql, [rel.id], function(err, records, fields){
-                    //console.log(records);
-                    rel.params = records;
-                    callback();
-                });
-            };
-        });
-        
-        var sqlNodeView =
-            'SELECT'+
-            '   *'+
-            ' FROM'+
-            '   node_views nv'+
-            ' WHERE'+
-            '   node_rel_id = ?';
-        var tasks2 = nodeRelations.map(function(rel){
-            return function(callback){
-                return connection.query(sqlNodeView, [rel.id], function(err, records, fields){
-                    rel.view = records[0];
-                    callback();
-                });
-            };
-        });
-        
-        async.parallel(tasks.concat(tasks2), function (err) {
-            if (err) { throw err; }
 
-            console.log(nodeRelations);
-        });
-        
-        
-    });
 });
 
 
