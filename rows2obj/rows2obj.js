@@ -4,7 +4,6 @@ exports.group = function(rows) {
     var id = arguments[1];
     var attrs = _.tail(arguments);
     
-    var prev = {};
     var ret = _(rows).foldl(function(memo, r){
         
         if(_.keys(memo).length == 0 || !memo[r[id]]){
