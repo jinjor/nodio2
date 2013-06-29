@@ -65,4 +65,19 @@ describe("rows2obj", function() {
         expect(result[1].children[1].id).toBeFalsy();
         expect(result[1].children[1].name).toEqual('bar');
     });
+    
+    
+    it("should distinct partially different objects", function() {
+        
+        var obj0 = {id: 0, name: 'hoge', children$id: 0, children$name: 'foo', };
+        var obj1 = {id: 0, name: 'fuga', children$id: 1, children$name: 'bar', };
+        var obj2 = {id: 1, name: 'hoge', children$id: 0, children$name: 'foo', };
+        var obj3 = {id: 1, name: 'fuga', children$id: 1, children$name: 'bar', };
+        var obj4 = {id: 0, name: 'hoge', children$id: 2, children$name: 'baz', };
+        
+        var rows = [obj0, obj1, obj2, obj3, obj4];
+        var result = rows2obj.group(rows);
+        
+        expect(result.length).toEqual(4);
+    });
 });

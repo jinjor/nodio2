@@ -9,6 +9,7 @@ exports.group = function(rows) {
         throw 'no main field found';
     }
     
+    
     var keys4Property = {};
     var keys4Children = {};        
     rows.forEach(function(r){
@@ -19,13 +20,23 @@ exports.group = function(rows) {
     });
     keys4Property = _.keys(keys4Property);
     keys4Children = _.keys(keys4Children);
+    
+    var getUniqObj = function(row){
+        var obj = {};
+        keys4Property.forEach(function(k){
+            obj[k] = row[k];
+        });
+        return JSON.stringify(obj);
+    };
+    
         
     var memo = {};
     rows.forEach(function(r){
-        if(!memo[r[keyOfId]]){
-            memo[r[keyOfId]] = {};
+        var uniqObj = getUniqObj(r);
+        if(!memo[uniqObj]){
+            memo[uniqObj] = {};
         }
-        var obj = memo[r[keyOfId]];
+        var obj = memo[uniqObj];
         keys4Property.forEach(function(k){
             obj[k] = r[k];
         });

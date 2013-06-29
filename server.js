@@ -16,10 +16,17 @@ var pool  = mysql.createPool({
   //password : 'root'
 });
 
-pool.getConnection(function(err, connection) {
-    if(err) throw err;
-    
-    var sql =
+var withConnection = function(f){
+    pool.getConnection(function(err, connection) {
+        if(err) throw err;
+        f(connection);
+        connection.end();
+    });
+};
+
+var getChildNodes = function(nodeId, callback){
+    withConnection(function(connection){
+        var sql =
         ' SELECT'+
         '   n.id'+
         '   ,n.name'+
@@ -28,6 +35,7 @@ pool.getConnection(function(err, connection) {
         '   ,n.prc_date as prcDate'+
         '   ,n.max_in as maxIn'+
         '   ,n.max_out as maxOut'+
+        '   ,nr.id as relationId'+
         '   ,cnp.id as params$id'+
         '   ,cnp.param_name as params$ParamName'+
         '   ,cnp.value as params$value'+
@@ -43,14 +51,55 @@ pool.getConnection(function(err, connection) {
         '   and cnp.node_relation_id = nr.id'+
         ' ORDER BY'+
         '   n.id';
-    
-    connection.query(sql, [1000], function(err, children, fields) {
-        if (err) throw err;   
-        console.log(rows2obj.group(children));
+        connection.query(sql, [nodeId], function(err, children, fields) {
+            if (err) callback(err);
+            console.log(children)
+            
+            
+            callback(null, rows2obj.group(children));
+        });
     });
-
-});
-
+}
+var getNodeView = function(nodeRelId, callback){
+    withConnection(function(connection){
+        console.log(nodeRelId);
+        var sql =
+        ' SELECT'+
+        '   nv.id'+
+        '   ,nv.offset_x as offsetX'+
+        '   ,nv.offset_y as offsetY'+
+        ' FROM'+
+        '   node_views nv'+
+        ' WHERE'+
+        '   nv.node_rel_id = ?';
+        connection.query(sql, [nodeRelId], function(err, views, fields) {
+            if (err) callback(err);
+            callback(null, views && views.length > 0 ? views[0] : null);
+        });
+    });
+};
+var getNodeConnections = function(nodeId, callback){
+    withConnection(function(connection){
+        var sql =
+         ' SELECT'+
+         '   c.id'+
+         '   ,c.source_node_rel_id as sourceNodeId'+
+         '   ,cnp.node_relation_id  as targetNodeId'+
+         '   ,cnp.param_name as targetParamName'+
+         ' FROM'+
+         '   node_relations nr'+
+         '   ,connections c'+
+         '   ,child_node_params cnp'+
+         ' WHERE'+
+         '   nr.parent_id = ?'+
+         '   and c.source_node_rel_id = nr.id'+
+         '   and cnp.id = c.target_child_param_id';
+        connection.query(sql, [nodeId], function(err, connections, fields) {
+            if (err) callback(err);
+            callback(null, connections);
+        });
+    });
+}
 
 var debugMode = process.env.NODE_APP_MODE === 'debug';
 var host = process.env.HOST || 'localhost';
@@ -70,6 +119,10 @@ app.configure(function () {
     app.use(app.router);
     app.use(express.static(path.join(__dirname, 'bin')));
     app.use(express.static(path.join(__dirname, 'lib')));
+    var debug = true;
+    if(debug){
+        app.use(express.static(path.join(__dirname, '.')));//for source map
+    }
     app.use(express.errorHandler());
 });
 
@@ -85,47 +138,10 @@ var db = {
             { sourceId: 'node6', targetId: 'node7'},
             { sourceId: 'node3', targetId: 'node6'},
             { sourceId: 'node4', targetId: 'node6'}
-            ],
-            nodes:[{
-                id: 'node1',
-                nodeType: 'oscillatorNode',
-                type: 0,
-                freq: 440
-            },{
-                id: 'node2',
-                nodeType: 'adsrNode'
-            },{
-                id: 'node3',
-                nodeType: 'gainNode',
-                gain: 0.3
-            },{
-                id: 'node4',
-                nodeType: 'gainNode',
-                gain: 0.3
-            },{
-                id: 'node5',
-                nodeType: 'delayNode',
-                value: 100
-            },{
-                id: 'node6',
-                nodeType: 'analyserNode'
-            },{
-                id: 'node7',
-                nodeType: 'destinationNode'
-            }],
-            nodeviews:{
-                'node1' : {top: 20, left:200},
-                'node2' : {top: 100, left:200},
-                'node3' : {top: 260, left:200},
-                'node4' : {top: 340, left:340},
-                'node5' : {top: 420, left:480},
-                'node6' : {top: 400, left:100},
-                'node7' : {top: 570, left:160},
-            }
+            ]
         }
     }
 };
-
 
 app.get('/', function (req, res) {
     res.writeHead(200, {
@@ -134,27 +150,47 @@ app.get('/', function (req, res) {
     var rs = fs.createReadStream('index.html');
     sys.pump(rs, res);
 });
+app.get('/children/:nodeId', function (req, res) {
+    var nodeId = req.params.nodeId;
+    
+    getChildNodes(nodeId, function(err, children){
+        if(err){
+            throw err;
+        }
+        res.contentType('application/json');
+        //console.log(children);
+        res.send(children);
+    });
+});
+/*
 app.get('/:synth/connections', function (req, res) {
     var synth = db.synth[req.params.synth];
     var connections = synth ? (synth.connections || []) : [];//TODO このへんてきとう
     res.contentType('application/json');
     res.send(connections);
 });
-app.get('/:synth/nodes', function (req, res) {
-    var synth = db.synth[req.params.synth];
-    var nodes = synth ? (synth.nodes || []) : [];//TODO このへんてきとう
-    res.contentType('application/json');
-    console.log(nodes);
-    res.send(nodes);
-    
-    
+*/
+app.get('/connections/:nodeId', function (req, res) {
+    var nodeId = req.params.nodeId;
+    getNodeConnections(nodeId, function(err, connections){
+        if(err){
+            throw err;
+        }
+        res.contentType('application/json');
+        console.log(connections);
+        res.send(connections);
+    });
 });
-app.get('/:synth/nodeviews/:id', function (req, res) {
-    var synth = db.synth[req.params.synth];
-    var nodeviews = synth ? (synth.nodeviews || {}) : {};//TODO このへんてきとう
-    var nodeview = nodeviews[req.params.id];
-    res.contentType('application/json');
-    res.send(nodeview);
+
+app.get('/nodeviews/:nodeRelId', function (req, res) {
+    var nodeRelId = req.params.nodeRelId;
+
+    getNodeView(nodeRelId, function(err, view){
+        view.left = view.offsetX;
+        view.top = view.offsetY;
+        res.contentType('application/json');
+        res.send(view);
+    });
 });
 app.put('/:synth/connections/:id', function (req, res) {
     console.log(req.body);

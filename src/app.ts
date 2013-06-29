@@ -8,15 +8,15 @@ module nodio {
     
     declare var $: any;
     
-    var root = 'tmp';
-    var nodes = new models.Nodes(root);
+    var nodeId = 1000;
+    var nodes = new models.Nodes(nodeId);
     
     var context:AudioContext = new webkitAudioContext();
     var tmpConnection = new models.TemporaryConnection();
-    var connections = new models.Connections(root, nodes, tmpConnection);
+    var connections = new models.Connections(nodeId, nodes, tmpConnection);
     
     $(() => {
-        var nodesView = new views.NodesView(root, nodes, connections, tmpConnection);
+        var nodesView = new views.NodesView(nodeId, nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
         nodes.load(context);
         

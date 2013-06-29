@@ -94,9 +94,9 @@ module views {
     }
     
     export class NodeViewModel extends Backbone.Model {
-        constructor(root:string, nodeId:string) {
+        constructor(nodeRelId:number) {
             super();
-            this.url = root + '/nodeviews/' + nodeId;
+            this.url = '/nodeviews/' + nodeRelId;
         }
         load(){
             var self:any = this;
@@ -122,9 +122,9 @@ module views {
         outX: number;
         outY: number;
         
-        constructor(root:string, node: models.Node, tmpConn: models.TemporaryConnection) {
+        constructor(node: models.Node, tmpConn: models.TemporaryConnection) {
             super();
-            this.viewModel = new NodeViewModel(root, node.id);
+            this.viewModel = new NodeViewModel(node.id);
             
             this.listenTo(this.viewModel, 'change:offsetX', (_, x)=> {
                 this.$el.css({left:x + 'px'});
@@ -259,7 +259,7 @@ module views {
     
     export class NodesView extends Backbone.View {
         raphael: any;
-        constructor(private root:string, nodes: models.Nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
+        constructor(private nodeId:number, nodes: models.Nodes, connections: models.Connections, private tmpConn: models.TemporaryConnection) {
             super();
             var that = this;
             this.$el = $('<div class="container"/>').css({
@@ -275,7 +275,7 @@ module views {
             
         }
         addNodeView(node) {
-            var view = new NodeView(this.root, node, this.tmpConn);
+            var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function(){
                 delete _views[view.id];
             });
@@ -295,6 +295,10 @@ module views {
             super();
             this.sourceView = _views[connection.source.id];
             this.targetView = _views[connection.target.id];
+            console.log(_views);
+            console.log(this.sourceView);
+            console.log(this.targetView);
+            
             this.listenTo(connection, 'destroy', () => {
                 this.path.remove();
             });

@@ -40,28 +40,25 @@ var models;
     var _id = 0;
     var Param = (function (_super) {
         __extends(Param, _super);
-        function Param(root, description, min, max, step, value, onChange) {
+        function Param(id, description, min, max, step, value, onChange) {
                 _super.call(this);
+            this.id = id;
             this.description = description;
             this.min = min;
             this.max = max;
             this.step = step;
-            this.id = Param.createParamId();
             this.on('change:value', function (_, value) {
                 onChange(value);
             });
             this.set('value', value);
         }
-        Param.createParamId = function createParamId() {
-            return 'param' + _id++;
-        };
         return Param;
     })(Backbone.Model);
     models.Param = Param;    
     var TargetParam = (function (_super) {
         __extends(TargetParam, _super);
-        function TargetParam(root, description, min, max, step, value) {
-                _super.call(this, root, description, min, max, step, value.value, function (_value) {
+        function TargetParam(id, description, min, max, step, value) {
+                _super.call(this, id, description, min, max, step, value.value, function (_value) {
         value.value = _value;
     });
             this.value = value;
@@ -71,21 +68,24 @@ var models;
     models.TargetParam = TargetParam;    
     var Node = (function (_super) {
         __extends(Node, _super);
-        function Node(urlRoot, audioNode, description, isSource, isTarget) {
+        function Node(id, audioNode, description, isSource, isTarget) {
+            var _this = this;
                 _super.call(this);
+            this.id = id;
             this.audioNode = audioNode;
             this.description = description;
             this.isSource = isSource;
             this.isTarget = isTarget;
-            this.id = Node.createParamId();
-            this.url = urlRoot + '/' + this.id;
+            this.url = 'child/' + this.id;
             this.targets = {
             };
             this.value = audioNode;
+            this.on('destroy', function () {
+                _this.params.forEach(function (p) {
+                    p.trigger('destroy');
+                });
+            });
         }
-        Node.createParamId = function createParamId() {
-            return 'node' + _id++;
-        };
         Node.prototype.connect = function (to) {
             try  {
                 this.audioNode.connect(to.value);
@@ -103,6 +103,12 @@ var models;
                 }
             }
         };
+        Node.prototype.getParam = function (name) {
+            if(name == 'in') {
+                return this;
+            }
+            return null;
+        };
         Node.prototype.remove = function () {
             this.destroy();
         };
@@ -111,9 +117,9 @@ var models;
     models.Node = Node;    
     var GainNode = (function (_super) {
         __extends(GainNode, _super);
-        function GainNode(root, node) {
-                _super.call(this, root, node, 'Gain', true, true);
-            this.gain = new TargetParam(root, 'Gain', 0, 1, 0.01, node.gain);
+        function GainNode(relId, node) {
+                _super.call(this, relId, node, 'Gain', true, true);
+            this.gain = new TargetParam(0, 'Gain', 0, 1, 0.01, node.gain);
             this.set('nodeType', 'gain');
             this.set('gain', this.gain);
             this.params = [
@@ -125,9 +131,9 @@ var models;
     models.GainNode = GainNode;    
     var DelayNode = (function (_super) {
         __extends(DelayNode, _super);
-        function DelayNode(root, node) {
-                _super.call(this, root, node, 'Delay', true, true);
-            this.delayTime = new TargetParam(root, 'DelayTime', 0.0, 0.5, 0.01, node.delayTime);
+        function DelayNode(relId, node) {
+                _super.call(this, relId, node, 'Delay', true, true);
+            this.delayTime = new TargetParam(0, 'DelayTime', 0.0, 0.5, 0.01, node.delayTime);
             this.set('nodeType', 'delay');
             this.set('delayTime', this.delayTime);
             this.params = [
@@ -139,12 +145,12 @@ var models;
     models.DelayNode = DelayNode;    
     var OscillatorNode = (function (_super) {
         __extends(OscillatorNode, _super);
-        function OscillatorNode(root, node) {
-                _super.call(this, root, node, 'Oscillator', true, false);
-            this.type = new Param(root, 'Type', 0, 3, 1, 0, function (value) {
+        function OscillatorNode(relId, node) {
+                _super.call(this, relId, node, 'Oscillator', true, false);
+            this.type = new Param(0, 'Type', 0, 3, 1, 0, function (value) {
                 node.type = parseInt(value);
             });
-            this.freq = new TargetParam(root, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
+            this.freq = new TargetParam(0, 'Freq', 60.0, 2000.0, 0.1, node.frequency);
             this.set('nodeType', 'oscillator');
             this.set('type', this.type);
             this.set('freq', this.freq);
@@ -158,10 +164,10 @@ var models;
     models.OscillatorNode = OscillatorNode;    
     var AnalyserNode = (function (_super) {
         __extends(AnalyserNode, _super);
-        function AnalyserNode(root, node) {
-                _super.call(this, root, node, 'Analyser', true, true);
+        function AnalyserNode(relId, node) {
+                _super.call(this, relId, node, 'Analyser', true, true);
             this.node = node;
-            this.mode = new Param(root, 'Mode', 0, 1, 1, node.mode, function (value) {
+            this.mode = new Param(0, 'Mode', 0, 1, 1, node.mode, function (value) {
                 node.mode = value;
             });
             this.set('nodeType', 'analyser');
@@ -174,22 +180,22 @@ var models;
     models.AnalyserNode = AnalyserNode;    
     var ADSRNode = (function (_super) {
         __extends(ADSRNode, _super);
-        function ADSRNode(root, context, node) {
-                _super.call(this, root, node, 'ADSR', true, true);
+        function ADSRNode(relId, context, node) {
+                _super.call(this, relId, node, 'ADSR', true, true);
             var a = 5;
             var d = 3;
             var s = 0.5;
             var r = 10;
-            this.attack = new Param(root, 'Attack', 0, 200, 0.1, a, function (_a) {
+            this.attack = new Param(0, 'Attack', 0, 200, 0.1, a, function (_a) {
                 a = _a;
             });
-            this.decay = new Param(root, 'Decay', 0, 200, 0.1, d, function (_d) {
+            this.decay = new Param(0, 'Decay', 0, 200, 0.1, d, function (_d) {
                 d = _d;
             });
-            this.sustain = new Param(root, 'Sustain', 0, 1, 0.01, s, function (_s) {
+            this.sustain = new Param(0, 'Sustain', 0, 1, 0.01, s, function (_s) {
                 s = _s;
             });
-            this.release = new Param(root, 'Release', 0, 200, 0.1, r, function (_r) {
+            this.release = new Param(0, 'Release', 0, 200, 0.1, r, function (_r) {
                 r = _r;
             });
             this.set('nodeType', 'adsr');
@@ -224,8 +230,8 @@ var models;
     models.ADSRNode = ADSRNode;    
     var DestinationNode = (function (_super) {
         __extends(DestinationNode, _super);
-        function DestinationNode(root, node) {
-                _super.call(this, root, node, 'Destination', false, true);
+        function DestinationNode(relId, node) {
+                _super.call(this, relId, node, 'Destination', false, true);
             this.params = [];
         }
         return DestinationNode;
@@ -233,22 +239,16 @@ var models;
     models.DestinationNode = DestinationNode;    
     var Connection = (function (_super) {
         __extends(Connection, _super);
-        function Connection(urlRoot, source, target) {
+        function Connection(id, source, target) {
                 _super.call(this);
+            this.id = id;
             this.source = source;
             this.target = target;
-            this.id = Connection.createConnectionId();
-            this.url = urlRoot + '/' + this.id;
+            this.url = '/connection/' + this.id;
             this.listenTo(source, 'destroy', this.remove);
             this.listenTo(target, 'destroy', this.remove);
             source.connect(target);
-            this.set('sourceId', source.id);
-            this.set('targetId', target.id);
-            this.save();
         }
-        Connection.createConnectionId = function createConnectionId() {
-            return 'connection' + _id++;
-        };
         Connection.prototype.remove = function () {
             this.stopListening(this.target);
             this.stopListening(this.source);
@@ -260,12 +260,11 @@ var models;
     models.Connection = Connection;    
     var Nodes = (function (_super) {
         __extends(Nodes, _super);
-        function Nodes(root) {
+        function Nodes(nodeId) {
                 _super.call(this);
-            this.root = root;
-            this.url = root + '/nodes';
+            this.nodeId = nodeId;
+            this.url = '/children/' + nodeId;
             this.on('add', function (node) {
-                node.save();
             });
         }
         Nodes.prototype.load = function (context) {
@@ -274,18 +273,19 @@ var models;
             self.fetch({
                 success: function (collection, data) {
                     data.forEach(function (d) {
-                        if(d.nodeType == 'gainNode') {
-                            _this.gainNode(context, d.gain, d.id);
-                        } else if(d.nodeType == 'oscillatorNode') {
-                            _this.oscillatorNode(context, d.type, d.freq, d.id);
-                        } else if(d.nodeType == 'analyserNode') {
-                            _this.analyserNode(context, d.id);
-                        } else if(d.nodeType == 'delayNode') {
-                            _this.delayNode(context, d.value, d.id);
-                        } else if(d.nodeType == 'adsrNode') {
-                            _this.adsrNode(context, d.id);
-                        } else if(d.nodeType == 'destinationNode') {
-                            _this.destinationNode(context, d.id);
+                        console.log(d);
+                        if(d.id == 1) {
+                            _this.gainNode(context, 0.3, d.relationId);
+                        } else if(d.id == 2) {
+                            _this.destinationNode(context, d.relationId);
+                        } else if(d.id == 3) {
+                            _this.oscillatorNode(context, 3, 440, d.relationId);
+                        } else if(d.id == 4) {
+                            _this.delayNode(context, 0.5, d.relationId);
+                        } else if(d.id == 100) {
+                            _this.adsrNode(context, d.relationId);
+                        } else if(d.id == 101) {
+                            _this.analyserNode(context, d.relationId);
                         }
                     });
                     _this.trigger('loaded');
@@ -294,6 +294,24 @@ var models;
         };
         Nodes.prototype.parse = function (res) {
             return [];
+        };
+        Nodes.prototype.getSource = function (nodeId) {
+            var _this = this;
+            return _this.get(nodeId);
+        };
+        Nodes.prototype.getTarget = function (nodeId, paramName) {
+            var _this = this;
+            var node = _this.get(nodeId);
+            if(!node) {
+                console.log('node[' + nodeId + '] not found');
+                return null;
+            }
+            var param = node.getParam(paramName);
+            if(!param) {
+                console.log('param[' + paramName + '] not found');
+                return null;
+            }
+            return param;
         };
         Nodes.prototype.gainNode = function (context, val, id) {
             var audioNode = context.createGain();
@@ -362,14 +380,14 @@ var models;
     models.Nodes = Nodes;    
     var Connections = (function (_super) {
         __extends(Connections, _super);
-        function Connections(root, nodes, tmp) {
+        function Connections(nodeId, nodes, tmp) {
             var _this = this;
                 _super.call(this);
             this.nodes = nodes;
             this.listenTo(tmp, 'resolve', function (st) {
                 _this.createConnection(st.source, st.target);
             });
-            this.url = root + '/connections';
+            this.url = '/connections/' + nodeId;
             this.listenTo(nodes, 'loaded', function () {
                 return _this.load();
             });
@@ -379,11 +397,9 @@ var models;
             var self = this;
             self.fetch({
                 success: function (collection, data) {
-                    data.forEach(function (d) {
-                        var nodes = _this.nodes;
-                        var source = nodes.get(d.sourceId);
-                        var target = nodes.get(d.targetId);
-                        _this.createConnection(source, target);
+                    console.log(data);
+                    data.forEach(function (c) {
+                        _this.createConnection2(c);
                     });
                     _this.trigger('loaded');
                 }
@@ -393,7 +409,15 @@ var models;
             return [];
         };
         Connections.prototype.createConnection = function (source, target) {
-            var connection = new Connection(this.url, source, target);
+            var connection = new Connection(0, source, target);
+            this.add(connection);
+            return connection;
+        };
+        Connections.prototype.createConnection2 = function (c) {
+            var nodes = this.nodes;
+            var source = nodes.getSource(c.sourceNodeId);
+            var target = nodes.getTarget(c.targetNodeId, c.targetParamName);
+            var connection = new Connection(c.id, source, target);
             this.add(connection);
             return connection;
         };
@@ -539,9 +563,9 @@ var views;
     views.Param = Param;    
     var NodeViewModel = (function (_super) {
         __extends(NodeViewModel, _super);
-        function NodeViewModel(root, nodeId) {
+        function NodeViewModel(nodeRelId) {
                 _super.call(this);
-            this.url = root + '/nodeviews/' + nodeId;
+            this.url = '/nodeviews/' + nodeRelId;
         }
         NodeViewModel.prototype.load = function () {
             var _this = this;
@@ -564,10 +588,10 @@ var views;
     };
     var NodeView = (function (_super) {
         __extends(NodeView, _super);
-        function NodeView(root, node, tmpConn) {
+        function NodeView(node, tmpConn) {
             var _this = this;
                 _super.call(this);
-            this.viewModel = new NodeViewModel(root, node.id);
+            this.viewModel = new NodeViewModel(node.id);
             this.listenTo(this.viewModel, 'change:offsetX', function (_, x) {
                 _this.$el.css({
                     left: x + 'px'
@@ -699,9 +723,9 @@ var views;
     views.NodeView = NodeView;    
     var NodesView = (function (_super) {
         __extends(NodesView, _super);
-        function NodesView(root, nodes, connections, tmpConn) {
+        function NodesView(nodeId, nodes, connections, tmpConn) {
                 _super.call(this);
-            this.root = root;
+            this.nodeId = nodeId;
             this.tmpConn = tmpConn;
             var that = this;
             this.$el = $('<div class="container"/>').css({
@@ -716,7 +740,7 @@ var views;
             this.listenTo(connections, 'add', this.addConnectionView);
         }
         NodesView.prototype.addNodeView = function (node) {
-            var view = new NodeView(this.root, node, this.tmpConn);
+            var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function () {
                 delete _views[view.id];
             });
@@ -736,6 +760,9 @@ var views;
                 _super.call(this);
             this.sourceView = _views[connection.source.id];
             this.targetView = _views[connection.target.id];
+            console.log(_views);
+            console.log(this.sourceView);
+            console.log(this.targetView);
             this.listenTo(connection, 'destroy', function () {
                 _this.path.remove();
             });
@@ -765,13 +792,13 @@ var views;
 })(views || (views = {}));
 var nodio;
 (function (nodio) {
-    var root = 'tmp';
-    var nodes = new models.Nodes(root);
+    var nodeId = 1000;
+    var nodes = new models.Nodes(nodeId);
     var context = new webkitAudioContext();
     var tmpConnection = new models.TemporaryConnection();
-    var connections = new models.Connections(root, nodes, tmpConnection);
+    var connections = new models.Connections(nodeId, nodes, tmpConnection);
     $(function () {
-        var nodesView = new views.NodesView(root, nodes, connections, tmpConnection);
+        var nodesView = new views.NodesView(nodeId, nodes, connections, tmpConnection);
         $('body').append(nodesView.$el);
         nodes.load(context);
     });
