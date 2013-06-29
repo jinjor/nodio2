@@ -138,13 +138,13 @@ module views {
             
             this.viewModel.load();
             
-            this.listenTo(node, 'destroy', () => {
+            this.listenTo(node, 'dispose', () => {
                 this.viewModel.destroy();
                 this.remove();
             });
             this.paramViews = node.params.map(function(p: models.Param){
                 var view = new ParamView(p);
-                _views[p.id] = view;
+                _views[p.getUniqueKey()] = view;
                 return view;
             });
             
@@ -272,14 +272,13 @@ module views {
             this.raphael = Raphael(this.$el[0], this.$el.width(), this.$el.height());
             this.listenTo(nodes, 'add', this.addNodeView);
             this.listenTo(connections, 'add', this.addConnectionView);
-            
         }
         addNodeView(node) {
             var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function(){
-                delete _views[view.id];
+                delete _views[node.getUniqueKey()];
             });
-            _views[node.id] = view;
+            _views[node.getUniqueKey()] = view;
             this.$el.prepend(view.$el);
         }
         addConnectionView(connection: models.Connection) {
@@ -293,13 +292,13 @@ module views {
         targetView: NodeView;
         constructor(connection: models.Connection, raphael) {
             super();
-            this.sourceView = _views[connection.source.id];
-            this.targetView = _views[connection.target.id];
+            this.sourceView = _views[connection.source.getUniqueKey()];
+            this.targetView = _views[connection.target.getUniqueKey()];
             console.log(_views);
             console.log(this.sourceView);
             console.log(this.targetView);
             
-            this.listenTo(connection, 'destroy', () => {
+            this.listenTo(connection, 'dispose', () => {
                 this.path.remove();
             });
             this.listenTo(this.sourceView, 'move', this.render);

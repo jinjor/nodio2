@@ -5,7 +5,7 @@
 module models {
     
     export interface ConnectionTarget {
-        id: number;
+        getUniqueKey: () => string;
         value: any;
     }
     
@@ -47,13 +47,15 @@ module models {
             });
             this.set('value', value);
         }
+        getUniqueKey(){
+            return 'param' + super.id;
+        }
     }
     export class TargetParam extends Param implements ConnectionTarget {
         constructor(id, description, min, max, step, public value: AudioParam) {
             super(id, description, min, max, step, value.value, (_value) => {
                 value.value = _value;
             });
-
         }
     }
     
@@ -68,16 +70,20 @@ module models {
             this.url = 'child/' + this.id;
             this.targets = {};
             this.value = audioNode;
-            this.on('destroy', () => {
+            /*
+            this.on('dispose', () => {
                 this.params.forEach((p) => {
-                    p.trigger('destroy');
+                    p.dispose();
                 }); 
-            });
+            });*/
+        }
+        getUniqueKey(){
+            return 'node' + this.id;
         }
         connect(to: ConnectionTarget) {
             try{
                 this.audioNode.connect(to.value);
-                this.targets[to.id] = to;
+                this.targets[to.getUniqueKey()] = to;
             }catch(e){
                 console.log(e);
             }
@@ -85,7 +91,7 @@ module models {
         }
         disconnect(to: ConnectionTarget) {
             this.audioNode.disconnect(to.value);
-            delete this.targets[to.id];
+            delete this.targets[to.getUniqueKey()];
             for(var key in this.targets){
                 if(this.targets.hasOwnProperty(key)){
                     this.connect(this.targets[key]);
@@ -103,7 +109,9 @@ module models {
             //return ps.length == 0 ? null : ps[0];
         }
         remove() {
-            this.destroy();
+            //this.destroy();
+            this.set('disposed', true);
+            this.trigger('dispose');
         }
     }
     
@@ -202,8 +210,8 @@ module models {
         constructor(private id:number, public source: Node, public target: ConnectionTarget) {
             super();
             this.url = '/connection/' + this.id;
-            this.listenTo(source, 'destroy', this.remove);
-            this.listenTo(target, 'destroy', this.remove);
+            this.listenTo(source, 'dispose', this.remove);
+            this.listenTo(target, 'dispose', this.remove);
             source.connect(target);
             //this.set('sourceId', source.id);
             //this.set('targetId', target.id);
@@ -221,7 +229,8 @@ module models {
             this.stopListening(this.target);
             this.stopListening(this.source);
             this.source.disconnect(this.target);
-            this.destroy();
+            this.set('disposed', true);
+            this.trigger('dispose');
         }
     }
     
@@ -403,6 +412,14 @@ module models {
             var nodes = this.nodes;
             var source = nodes.getSource(c.sourceNodeId);
             var target = nodes.getTarget(c.targetNodeId, c.targetParamName);
+            if(!source){
+                console.log(nodes);
+                throw 'source[' + c.sourceNodeId + '] not found';
+            }
+            if(!target){
+                console.log(nodes);
+                throw 'target[' + c.targetNodeId + ', ' + c.targetParamName + '] not found';
+            }
             var connection = new Connection(c.id, source, target);//TODO
             this.add(connection);
             return connection;

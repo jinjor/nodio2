@@ -42,19 +42,16 @@ var getChildNodes = function(nodeId, callback){
         '   ,cnp.public_name as params$publicName'+
         '   ,cnp.public_max_in as params$publicMaxIn'+
         ' FROM'+
-        '   node_relations nr'+
-        '   ,child_node_params cnp'+
+        '   node_relations nr LEFT JOIN child_node_params cnp ON cnp.node_relation_id = nr.id'+
         '   ,nodes n'+
+        ' '+
         ' WHERE'+
         '   nr.parent_id = ?'+
         '   and nr.child_id = n.id'+
-        '   and cnp.node_relation_id = nr.id'+
         ' ORDER BY'+
         '   n.id';
         connection.query(sql, [nodeId], function(err, children, fields) {
             if (err) callback(err);
-            console.log(children)
-            
             
             callback(null, rows2obj.group(children));
         });
@@ -158,7 +155,7 @@ app.get('/children/:nodeId', function (req, res) {
             throw err;
         }
         res.contentType('application/json');
-        //console.log(children);
+        console.log(children);
         res.send(children);
     });
 });

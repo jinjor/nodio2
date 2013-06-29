@@ -80,4 +80,20 @@ describe("rows2obj", function() {
         
         expect(result.length).toEqual(4);
     });
+    
+    it("should not treat as an object if its all params are null", function() {
+        
+        var obj0 = {id: 0, name: 'hoge', children$id: 0, children$name: 'foo', };
+        var obj1 = {id: 0, name: 'hoge', children$id: 1, children$name: 'bar', };
+        var obj2 = {id: 1, name: 'fuga', children$id: null, children$name: null, };
+        var obj3 = {id: 1, name: 'fuga', children$id: null, children$name: null, };
+        var obj4 = {id: 0, name: 'hoge', children$id: null, children$name: null, };
+        
+        var rows = [obj0, obj1, obj2, obj3, obj4];
+        var result = rows2obj.group(rows);
+        
+        expect(result.length).toEqual(2);
+        expect(result[0].children.length).toEqual(2);
+        expect(result[1].children.length).toEqual(0);
+    });
 });

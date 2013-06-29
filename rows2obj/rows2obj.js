@@ -48,13 +48,21 @@ exports.group = function(rows) {
             if(!obj[k]){
                 obj[k] = [];
             }
-            obj[k].push({});
-            var lastChild = _.last(obj[k]);
+            
+            var lastChild = {};
+            var nonNullExists = false;
             matchedKeys.map(function(kk){
                 return kk.split('$', 2)[1];
             }).forEach(function(kk){
                 lastChild[kk] = r[k + '$' + kk];
+                if(lastChild[kk] != null && lastChild[kk] != undefined){
+                    nonNullExists = true;
+                }
             });
+            if(nonNullExists){
+                obj[k].push(lastChild);
+            }
+            
         });
     });
     return _.values(memo);

@@ -52,6 +52,9 @@ var models;
             });
             this.set('value', value);
         }
+        Param.prototype.getUniqueKey = function () {
+            return 'param' + _super.prototype.id;
+        };
         return Param;
     })(Backbone.Model);
     models.Param = Param;    
@@ -69,7 +72,6 @@ var models;
     var Node = (function (_super) {
         __extends(Node, _super);
         function Node(id, audioNode, description, isSource, isTarget) {
-            var _this = this;
                 _super.call(this);
             this.id = id;
             this.audioNode = audioNode;
@@ -80,23 +82,21 @@ var models;
             this.targets = {
             };
             this.value = audioNode;
-            this.on('destroy', function () {
-                _this.params.forEach(function (p) {
-                    p.trigger('destroy');
-                });
-            });
         }
+        Node.prototype.getUniqueKey = function () {
+            return 'node' + this.id;
+        };
         Node.prototype.connect = function (to) {
             try  {
                 this.audioNode.connect(to.value);
-                this.targets[to.id] = to;
+                this.targets[to.getUniqueKey()] = to;
             } catch (e) {
                 console.log(e);
             }
         };
         Node.prototype.disconnect = function (to) {
             this.audioNode.disconnect(to.value);
-            delete this.targets[to.id];
+            delete this.targets[to.getUniqueKey()];
             for(var key in this.targets) {
                 if(this.targets.hasOwnProperty(key)) {
                     this.connect(this.targets[key]);
@@ -110,7 +110,8 @@ var models;
             return null;
         };
         Node.prototype.remove = function () {
-            this.destroy();
+            this.set('disposed', true);
+            this.trigger('dispose');
         };
         return Node;
     })(Backbone.Model);
@@ -245,15 +246,16 @@ var models;
             this.source = source;
             this.target = target;
             this.url = '/connection/' + this.id;
-            this.listenTo(source, 'destroy', this.remove);
-            this.listenTo(target, 'destroy', this.remove);
+            this.listenTo(source, 'dispose', this.remove);
+            this.listenTo(target, 'dispose', this.remove);
             source.connect(target);
         }
         Connection.prototype.remove = function () {
             this.stopListening(this.target);
             this.stopListening(this.source);
             this.source.disconnect(this.target);
-            this.destroy();
+            this.set('disposed', true);
+            this.trigger('dispose');
         };
         return Connection;
     })(Backbone.Model);
@@ -417,6 +419,14 @@ var models;
             var nodes = this.nodes;
             var source = nodes.getSource(c.sourceNodeId);
             var target = nodes.getTarget(c.targetNodeId, c.targetParamName);
+            if(!source) {
+                console.log(nodes);
+                throw 'source[' + c.sourceNodeId + '] not found';
+            }
+            if(!target) {
+                console.log(nodes);
+                throw 'target[' + c.targetNodeId + ', ' + c.targetParamName + '] not found';
+            }
             var connection = new Connection(c.id, source, target);
             this.add(connection);
             return connection;
@@ -605,13 +615,13 @@ var views;
                 _this.resetPosition();
             });
             this.viewModel.load();
-            this.listenTo(node, 'destroy', function () {
+            this.listenTo(node, 'dispose', function () {
                 _this.viewModel.destroy();
                 _this.remove();
             });
             this.paramViews = node.params.map(function (p) {
                 var view = new ParamView(p);
-                _views[p.id] = view;
+                _views[p.getUniqueKey()] = view;
                 return view;
             });
             var label = $('<label/>').text(node.description);
@@ -742,9 +752,9 @@ var views;
         NodesView.prototype.addNodeView = function (node) {
             var view = new NodeView(node, this.tmpConn);
             this.listenTo(view, 'remove', function () {
-                delete _views[view.id];
+                delete _views[node.getUniqueKey()];
             });
-            _views[node.id] = view;
+            _views[node.getUniqueKey()] = view;
             this.$el.prepend(view.$el);
         };
         NodesView.prototype.addConnectionView = function (connection) {
@@ -758,12 +768,12 @@ var views;
         function ConnectionView(connection, raphael) {
             var _this = this;
                 _super.call(this);
-            this.sourceView = _views[connection.source.id];
-            this.targetView = _views[connection.target.id];
+            this.sourceView = _views[connection.source.getUniqueKey()];
+            this.targetView = _views[connection.target.getUniqueKey()];
             console.log(_views);
             console.log(this.sourceView);
             console.log(this.targetView);
-            this.listenTo(connection, 'destroy', function () {
+            this.listenTo(connection, 'dispose', function () {
                 _this.path.remove();
             });
             this.listenTo(this.sourceView, 'move', this.render);
