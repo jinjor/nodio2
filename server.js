@@ -9,12 +9,14 @@ var async = require("async");
 var rows2obj = require("./rows2obj/rows2obj.js");
 var _ = require("underscore");
 
-var pool  = mysql.createPool({
+var dburl = process.env.CLEARDB_DATABASE_URL;
+var debug = dburl ? false : true;
+
+var pool  = debug ? mysql.createPool({
   host     : 'localhost',
   database : 'nodio',
-  user     : 'root',
-  //password : 'root'
-});
+  user     : 'root'
+}) : mysql.createPool(dburl);
 
 var withConnection = function(f){
     pool.getConnection(function(err, connection) {
@@ -98,7 +100,6 @@ var getNodeConnections = function(nodeId, callback){
     });
 }
 
-var debugMode = process.env.NODE_APP_MODE === 'debug';
 var host = process.env.HOST || 'localhost';
 var port = process.env.PORT || 3000;
 console.log('host: ' + host);
@@ -116,7 +117,6 @@ app.configure(function () {
     app.use(app.router);
     app.use(express.static(path.join(__dirname, 'bin')));
     app.use(express.static(path.join(__dirname, 'lib')));
-    var debug = true;
     if(debug){
         app.use(express.static(path.join(__dirname, '.')));//for source map
     }
