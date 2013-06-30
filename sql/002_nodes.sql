@@ -1,0 +1,18 @@
+
+DROP TABLE IF EXISTS `nodes`;
+CREATE TABLE `nodes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(45) CHARACTER SET latin1 NOT NULL,
+  `author` int(11) NOT NULL,
+  `create_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `prc_date` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `max_in` tinyint(4) NOT NULL DEFAULT '0',
+  `max_out` tinyint(4) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `nodesauhtor_to_userid` (`author`),
+  CONSTRAINT `nodesauhtor_to_userid` FOREIGN KEY (`author`) REFERENCES `users` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=1001 DEFAULT CHARSET=utf8;
+
+LOCK TABLES `nodes` WRITE;
+INSERT INTO `nodes` VALUES (1,'Gain',1,'2013-06-23 21:15:16','2013-06-23 19:34:23',99,99),(2,'Destination',1,'2013-06-23 21:15:16','2013-06-23 19:34:23',99,0),(3,'Oscillator',1,'2013-06-23 21:15:16','2013-06-23 19:34:23',0,99),(4,'Delay',1,'2013-06-23 21:15:16','2013-06-23 19:40:09',99,99),(5,'Filter',1,'2013-06-23 21:15:16','2013-06-23 19:34:23',99,99),(100,'ADSR',1,'2013-06-23 21:15:16','2013-06-23 19:30:01',99,99),(101,'Analyser',1,'2013-06-23 21:15:16','2013-06-23 19:40:09',99,99),(1000,'Sample',1,'2013-06-23 19:34:23','2013-06-23 19:26:10',0,0);
+UNLOCK TABLES;
