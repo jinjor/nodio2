@@ -1,6 +1,6 @@
 {
-  "name": "nodio2",
-  "version": "0.0.1",
+  "name": "nodio",
+  "version": "0.1.0",
   "private": true,
   "engines": {
     "node": "0.8.8",
@@ -12,7 +12,7 @@
     "async":"*",
     "underscore":"*"
   },
-  "subdomain": "jinjor.nodio2",
+  "subdomain": "jinjor.nodio",
   "scripts": {
     "start": "server.js"
   }
